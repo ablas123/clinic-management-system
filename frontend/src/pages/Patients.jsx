@@ -1,14 +1,8 @@
-// ===========================================
-// 👥 PATIENTS MANAGEMENT PAGE
-// ===========================================
-// File: src/pages/Patients.jsx
-// Description: Full CRUD operations for patients
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import api from '../../services/api';
-import { Users, Plus, Trash2, Edit, Search, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+import { Users, Plus, Trash2, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 
 const Patients = () => {
   const { logout } = useAuth();
@@ -29,7 +23,6 @@ const Patients = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // 🔍 Fetch patients on mount
   useEffect(() => {
     fetchPatients();
   }, []);
@@ -52,7 +45,6 @@ const Patients = () => {
     }
   };
 
-  // ➕ Add new patient
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -72,7 +64,6 @@ const Patients = () => {
     }
   };
 
-  // 🗑️ Delete patient
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من حذف هذا المريض؟')) return;
 
@@ -86,7 +77,6 @@ const Patients = () => {
     }
   };
 
-  // 🔎 Filter patients by search
   const filteredPatients = patients.filter(patient =>
     patient.firstName?.toLowerCase().includes(search.toLowerCase()) ||
     patient.lastName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -95,7 +85,6 @@ const Patients = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 🔝 Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -117,9 +106,7 @@ const Patients = () => {
         </div>
       </header>
 
-      {/* 📊 Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* ⚠️ Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-6">
             <AlertCircle className="w-5 h-5" />
@@ -127,72 +114,25 @@ const Patients = () => {
           </div>
         )}
 
-        {/* 📝 Add Patient Form */}
         {showForm && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
             <h2 className="text-lg font-bold text-gray-800 mb-4">إضافة مريض جديد</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                placeholder="الاسم الأول"
-                value={formData.firstName}
-                onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500"
-                required
-              />
-              <input
-                type="text"
-                placeholder="اسم العائلة"
-                value={formData.lastName}
-                onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500"
-                required
-              />
-              <input
-                type="email"
-                placeholder="البريد الإلكتروني"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500"
-                required
-              />
-              <input
-                type="tel"
-                placeholder="رقم الهاتف"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500"
-                required
-              />
-              <select
-                value={formData.gender}
-                onChange={(e) => setFormData({...formData, gender: e.target.value})}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500"
-              >
+              <input type="text" placeholder="الاسم الأول" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500" required />
+              <input type="text" placeholder="اسم العائلة" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500" required />
+              <input type="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500" required />
+              <input type="tel" placeholder="رقم الهاتف" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500" required />
+              <select value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500">
                 <option value="MALE">ذكر</option>
                 <option value="FEMALE">أنثى</option>
               </select>
-              <input
-                type="text"
-                placeholder="فصيلة الدم (اختياري)"
-                value={formData.bloodType}
-                onChange={(e) => setFormData({...formData, bloodType: e.target.value})}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500"
-              />
+              <input type="text" placeholder="فصيلة الدم (اختياري)" value={formData.bloodType} onChange={(e) => setFormData({...formData, bloodType: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500" />
               <div className="md:col-span-2 flex gap-3">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
+                <button type="submit" disabled={submitting} className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                   {submitting ? 'جاري الإضافة...' : 'حفظ'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg transition-colors"
-                >
+                <button type="button" onClick={() => setShowForm(false)} className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg transition-colors">
                   إلغاء
                 </button>
               </div>
@@ -200,21 +140,13 @@ const Patients = () => {
           </div>
         )}
 
-        {/* 🔍 Search Bar */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="بحث بالاسم أو البريد..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            />
+            <input type="text" placeholder="بحث بالاسم أو البريد..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
           </div>
         </div>
 
-        {/* 📋 Patients Table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">
@@ -243,21 +175,12 @@ const Patients = () => {
                   {filteredPatients.map((patient, index) => (
                     <tr key={patient.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                        {patient.firstName} {patient.lastName}
-                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{patient.firstName} {patient.lastName}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{patient.email}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{patient.phone}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
-                          {patient.bloodType || '-'}
-                        </span>
-                      </td>
+                      <td className="px-4 py-3 text-sm"><span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">{patient.bloodType || '-'}</span></td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => handleDelete(patient.id)}
-                          className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-colors"
-                        >
+                        <button onClick={() => handleDelete(patient.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
@@ -267,11 +190,6 @@ const Patients = () => {
               </table>
             </div>
           )}
-        </div>
-
-        {/* 📊 Stats */}
-        <div className="mt-6 text-center text-sm text-gray-500">
-          عرض {filteredPatients.length} من أصل {patients.length} مريض
         </div>
       </main>
     </div>
