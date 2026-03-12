@@ -1,0 +1,29 @@
+# ===========================================
+# 🚀 RENDER DEPLOYMENT CONFIGURATION
+# ===========================================
+
+services:
+  - type: web
+    name: clinic-backend
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: FRONTEND_URL
+        value: http://localhost:5173
+      - key: BCRYPT_ROUNDS
+        value: 10
