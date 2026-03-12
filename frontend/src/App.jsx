@@ -4,6 +4,9 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
 import Doctors from './pages/Doctors'
+import Appointments from './pages/Appointments'
+import Invoices from './pages/Invoices'
+import Lab from './pages/Lab'
 import NotFound from './pages/NotFound'
 
 const ProtectedRoute = ({ children }) => {
@@ -28,6 +31,9 @@ function AppRoutes() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
       <Route path="/doctors" element={<ProtectedRoute><Doctors /></ProtectedRoute>} />
+      <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
+      <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+      <Route path="/lab" element={<ProtectedRoute><Lab /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -44,4 +50,4 @@ function App() {
   )
 }
 
-export default App 
+export default App
