@@ -19,7 +19,7 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
 function AppRoutes() {
@@ -28,15 +28,16 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-      <Route path="*" element={<NotFound />} />
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route path="/404" element={<NotFound />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/clinic-management-system">
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
