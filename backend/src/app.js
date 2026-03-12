@@ -64,14 +64,15 @@ app.get('/', (req, res) => {
     success: true,
     message: 'Welcome to Clinic Management System API',
     version: '1.0.0',
-    endpoints: {
-      health: '/api/health',
+    modules: {
       auth: '/api/auth',
       patients: '/api/patients',
       doctors: '/api/doctors',
       appointments: '/api/appointments',
-      invoices: '/api/invoices'
+      invoices: '/api/invoices',
+      laboratory: '/api/lab'
     },
+    healthCheck: '/api/health',
     documentation: 'https://github.com/yourname/clinic-management-system'
   });
 });
@@ -95,6 +96,10 @@ app.use('/api/appointments', appointmentRoutes);
 // ⚡ INVOICE ROUTES
 const invoiceRoutes = require('./routes/invoiceRoutes');
 app.use('/api/invoices', invoiceRoutes);
+
+// ⚡ LABORATORY ROUTES
+const labRoutes = require('./routes/labRoutes');
+app.use('/api/lab', labRoutes);
 
 // ===========================================
 // ❌ ERROR HANDLING
