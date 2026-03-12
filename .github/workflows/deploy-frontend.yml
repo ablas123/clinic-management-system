@@ -24,6 +24,7 @@ jobs:
       - name: Build
         run: |
           cd frontend
+          echo "VITE_API_URL=https://clinic-backend-1g7c.onrender.com/api" >> .env
           npm run build
       
       - name: Deploy to GitHub Pages
