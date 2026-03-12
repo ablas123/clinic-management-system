@@ -5,6 +5,14 @@ import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
 import NotFound from './pages/NotFound'
 
+// 🔍 تحقق بسيط من متغيرات البيئة
+const API_URL = import.meta.env.VITE_API_URL
+if (!API_URL) {
+  console.warn('⚠️ VITE_API_URL is not set!')
+} else {
+  console.log('✅ API URL:', API_URL)
+}
+
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth()
 
