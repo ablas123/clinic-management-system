@@ -63,22 +63,32 @@ app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'Welcome to Clinic Management System API',
-    version: '1.0.0'
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      patients: '/api/patients',
+      doctors: '/api/doctors',
+      appointments: '/api/appointments',
+      invoices: '/api/invoices'
+    }
   });
 });
 
-// ⚠️ Feature Routes (Will be added in next steps)
-// const authRoutes = require('./routes/authRoutes');
+// ⚡ AUTH ROUTES (Activated)
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
+// ⚠️ Other Routes (Will be added in next steps)
 // const patientRoutes = require('./routes/patientRoutes');
-// const appointmentRoutes = require('./routes/appointmentRoutes');
 // const doctorRoutes = require('./routes/doctorRoutes');
+// const appointmentRoutes = require('./routes/appointmentRoutes');
 // const invoiceRoutes = require('./routes/invoiceRoutes');
 
-// app.use('/api/auth', authRoutes);
 // app.use('/api/patients', patientRoutes);
-// app.use('/api/appointments', appointmentRoutes);
 // app.use('/api/doctors', doctorRoutes);
-// app.use('/api/invoices', invoiceRoutes');
+// app.use('/api/appointments', appointmentRoutes);
+// app.use('/api/invoices', invoiceRoutes);
 
 // ===========================================
 // ❌ ERROR HANDLING
@@ -108,4 +118,4 @@ app.use((err, req, res, next) => {
 // 📤 EXPORT APP
 // ===========================================
 
-module.exports = app;
+module.exports = app; 
