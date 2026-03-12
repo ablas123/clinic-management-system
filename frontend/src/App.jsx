@@ -1,15 +1,10 @@
-// ===========================================
-//  MAIN APP COMPONENT WITH ROUTING
-// ===========================================
-// File: src/App.jsx
-// Description: Router setup and protected routes
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Patients from './pages/Patients';
+import NotFound from './pages/NotFound';
 
-// 🔒 Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
@@ -27,31 +22,18 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
-// 🎯 Main App Component
 function AppRoutes() {
   return (
     <Routes>
-      {/* 🚪 Public Routes */}
       <Route path="/login" element={<Login />} />
-      
-      {/* 🔒 Protected Routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      
-      {/* 🏠 Default redirect */}
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+      <Route path="*" element={<NotFound />} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
-      <Route path="*" element={<Navigate to="/dashboard" />} />
     </Routes>
   );
 }
 
-// 📦 App with Providers
 function App() {
   return (
     <BrowserRouter>
