@@ -89,7 +89,7 @@ exports.getAllInvoices = async (req, res) => {
       total,
       page,
       pages: Math.ceil(total / limit),
-       { invoices }
+      data: { invoices }
     });
 
   } catch (error) {
@@ -156,7 +156,7 @@ exports.getInvoiceById = async (req, res) => {
 
     res.status(200).json({
       success: true,
-       { invoice }
+      data: { invoice }
     });
 
   } catch (error) {
@@ -266,7 +266,7 @@ exports.createInvoice = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Invoice created successfully',
-       { invoice }
+      data: { invoice }
     });
 
   } catch (error) {
@@ -323,7 +323,7 @@ exports.updateInvoice = async (req, res) => {
     // 4. Update invoice
     const invoice = await prisma.invoice.update({
       where: { id },
-       {
+      data: {
         amount: amount !== undefined ? amount : undefined,
         description,
         dueDate: dueDate ? new Date(dueDate) : undefined,
@@ -349,7 +349,7 @@ exports.updateInvoice = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Invoice updated successfully',
-       { invoice }
+      data: { invoice }
     });
 
   } catch (error) {
@@ -445,7 +445,7 @@ exports.markAsPaid = async (req, res) => {
     // 3. Mark as paid
     const updatedInvoice = await prisma.invoice.update({
       where: { id },
-       { status: 'PAID' },
+      data: { status: 'PAID' },
       select: {
         id: true,
         amount: true,
@@ -464,7 +464,7 @@ exports.markAsPaid = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Invoice marked as paid successfully',
-       { invoice: updatedInvoice }
+      data: { invoice: updatedInvoice }
     });
 
   } catch (error) {
@@ -510,7 +510,7 @@ exports.cancelInvoice = async (req, res) => {
     // 3. Cancel invoice
     const updatedInvoice = await prisma.invoice.update({
       where: { id },
-       { status: 'CANCELLED' },
+      data: { status: 'CANCELLED' },
       select: {
         id: true,
         status: true,
@@ -527,7 +527,7 @@ exports.cancelInvoice = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Invoice cancelled successfully',
-       { invoice: updatedInvoice }
+      data: { invoice: updatedInvoice }
     });
 
   } catch (error) {
@@ -567,7 +567,7 @@ exports.getInvoiceStats = async (req, res) => {
       where: {
         status: 'PAID',
         createdAt: {
-          gte: new Date(new Date().setDate(1)) // First day of current month
+          gte: new Date(new Date().setDate(1))
         }
       },
       _sum: { amount: true }
@@ -575,7 +575,7 @@ exports.getInvoiceStats = async (req, res) => {
 
     res.status(200).json({
       success: true,
-       {
+      data: {
         totalInvoices,
         invoicesByStatus,
         totalRevenue: totalRevenue._sum.amount || 0,
@@ -630,7 +630,7 @@ exports.getInvoicesByPatient = async (req, res) => {
       total,
       page,
       pages: Math.ceil(total / limit),
-       { invoices }
+      data: { invoices }
     });
 
   } catch (error) {
@@ -685,13 +685,13 @@ exports.getOverdueInvoices = async (req, res) => {
           lt: now
         }
       },
-       { status: 'OVERDUE' }
+      data: { status: 'OVERDUE' }
     });
 
     res.status(200).json({
       success: true,
       count: overdueInvoices.length,
-       { invoices: overdueInvoices }
+      data: { invoices: overdueInvoices }
     });
 
   } catch (error) {
