@@ -69,7 +69,7 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       patients: '/api/patients',
       doctors: '/api/doctors',
-      appointments: '/api/appointments (coming soon)',
+      appointments: '/api/appointments',
       invoices: '/api/invoices (coming soon)'
     }
   });
@@ -87,11 +87,12 @@ app.use('/api/patients', patientRoutes);
 const doctorRoutes = require('./routes/doctorRoutes');
 app.use('/api/doctors', doctorRoutes);
 
-// ⚠️ Other Routes (Will be added in next steps)
-// const appointmentRoutes = require('./routes/appointmentRoutes');
-// const invoiceRoutes = require('./routes/invoiceRoutes');
+// ⚡ APPOINTMENT ROUTES (Activated)
+const appointmentRoutes = require('./routes/appointmentRoutes');
+app.use('/api/appointments', appointmentRoutes);
 
-// app.use('/api/appointments', appointmentRoutes);
+// ⚠️ Other Routes (Will be added in next steps)
+// const invoiceRoutes = require('./routes/invoiceRoutes');
 // app.use('/api/invoices', invoiceRoutes);
 
 // ===========================================
