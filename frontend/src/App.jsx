@@ -3,19 +3,11 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
+import Doctors from './pages/Doctors'
 import NotFound from './pages/NotFound'
-
-// 🔍 تحقق بسيط من متغيرات البيئة
-const API_URL = import.meta.env.VITE_API_URL
-if (!API_URL) {
-  console.warn('⚠️ VITE_API_URL is not set!')
-} else {
-  console.log('✅ API URL:', API_URL)
-}
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth()
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -26,7 +18,6 @@ const ProtectedRoute = ({ children }) => {
       </div>
     )
   }
-
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
@@ -36,6 +27,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+      <Route path="/doctors" element={<ProtectedRoute><Doctors /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
