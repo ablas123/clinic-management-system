@@ -28,6 +28,7 @@ model Doctor {
   
   appointments  Appointment[]
   medicalRecords MedicalRecord[]
+  labResults    LabResult[]
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -52,6 +53,7 @@ model Patient {
   appointments  Appointment[]
   medicalRecords MedicalRecord[]
   invoices      Invoice[]
+  labResults    LabResult[]
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -76,6 +78,7 @@ model Appointment {
   patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   medicalRecord MedicalRecord?
+  labResults    LabResult[]
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -163,4 +166,80 @@ enum Role {
   ADMIN
   DOCTOR
   STAFF
+  LAB_TECH
+}
+
+// ===========================================
+// 🧪 LAB TESTS TABLE (Test Types/Categories)
+// ===========================================
+model LabTest {
+  id            String    @id @default(uuid())
+  name          String
+  code          String    @unique  // e.g., "CBC", "LIPID", "HBA1C"
+  category      String    // e.g., "Blood", "Urine", "X-Ray", "MRI"
+  description   String?   @db.Text
+  price         Float
+  unit          String?   // e.g., "mg/dL", "g/dL", "cells/μL"
+  referenceRange String?  // e.g., "12-16" for Hemoglobin
+  minRange      Float?    // e.g., 12.0
+  maxRange      Float?    // e.g., 16.0
+  isFasting     Boolean   @default(false)
+  turnaroundTime Int?     // Hours to complete
+  isActive      Boolean   @default(true)
+  
+  // Dynamic fields configuration (JSON for flexibility)
+  // Example: [{"name": "Hemoglobin", "unit": "g/dL", "min": 12, "max": 16}]
+  fields        Json?
+  
+  labResults    LabResult[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("lab_tests")
+}
+
+// ===========================================
+// 📊 LAB RESULTS TABLE (Patient Test Results)
+// ===========================================
+model LabResult {
+  id            String    @id @default(uuid())
+  status        LabResultStatus @default(PENDING)
+  
+  // Test results (JSON for dynamic fields)
+  // Example: {"Hemoglobin": 14.2, "WBC": 7.5, "RBC": 4.8}
+  results       Json?
+  
+  notes         String?   @db.Text
+  attachments   String[]  // URLs to PDF/Images
+  
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  
+  testId        String
+  test          LabTest   @relation(fields: [testId], references: [id], onDelete: Cascade)
+  
+  completedBy   String?
+  doctor        Doctor?   @relation(fields: [completedBy], references: [id], onDelete: SetNull)
+  
+  orderedBy     String?   // Doctor who ordered the test
+  collectedAt   DateTime? // Sample collection time
+  completedAt   DateTime? // Result completion time
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("lab_results")
+}
+
+enum LabResultStatus {
+  PENDING
+  COLLECTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  CRITICAL
 }
