@@ -1,12 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Patients from './pages/Patients';
-import NotFound from './pages/NotFound';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Patients from './pages/Patients'
+import NotFound from './pages/NotFound'
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth()
 
   if (loading) {
     return (
@@ -16,11 +16,11 @@ const ProtectedRoute = ({ children }) => {
           <p className="text-gray-600">جاري التحميل...</p>
         </div>
       </div>
-    );
+    )
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
-};
+  return isAuthenticated ? children : <Navigate to="/login" replace />
+}
 
 function AppRoutes() {
   return (
@@ -28,21 +28,20 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-      <Route path="/404" element={<NotFound />} />
+      <Route path="*" element={<NotFound />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
-  );
+  )
 }
 
 function App() {
   return (
-    <BrowserRouter basename="/clinic-management-system">
+    <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
-  );
+  )
 }
 
-export default App;
+export default App
