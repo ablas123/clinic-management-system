@@ -51,7 +51,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
-      {/* 🔝 Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -78,17 +77,12 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* 📊 Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Welcome Card */}
         <div className="bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl p-8 text-white mb-8">
           <h2 className="text-2xl font-bold mb-2">مرحباً بك! 👋</h2>
-          <p className="opacity-90">
-            اختر وحدة من النظام للبدء في الإدارة
-          </p>
+          <p className="opacity-90">اختر وحدة من النظام للبدء في الإدارة</p>
         </div>
 
-        {/* Menu Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {menuItems.map((item) => (
             <button
@@ -105,7 +99,6 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* 📈 Quick Stats */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <p className="text-gray-500 text-sm mb-1">إجمالي المرضى</p>
