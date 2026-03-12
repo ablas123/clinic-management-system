@@ -9,25 +9,26 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
+// 🔑 TRUST PROXY FOR RENDER (مهم جداً)
+app.set('trust proxy', 1);
+
 // ===========================================
 // 🔒 SECURITY MIDDLEWARE
 // ===========================================
 
-// 1. Helmet: Sets security HTTP headers
 app.use(helmet());
 
-// 2. CORS: Allows frontend to communicate with backend
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: true, // ✅ يقبل جميع المصادر أثناء التطوير
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// 3. Rate Limiting: Prevents DDoS and brute-force attacks
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  skipFailedRequests: true,
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
@@ -48,7 +49,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // 🏥 API ROUTES
 // ===========================================
 
-// Health Check Endpoint (For monitoring)
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -58,7 +58,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Root Endpoint
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -72,32 +71,26 @@ app.get('/', (req, res) => {
       invoices: '/api/invoices',
       laboratory: '/api/lab'
     },
-    healthCheck: '/api/health',
-    documentation: 'https://github.com/yourname/clinic-management-system'
+    healthCheck: '/api/health'
   });
 });
 
-// ⚡ AUTH ROUTES
+// ⚡ ROUTES
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-// ⚡ PATIENT ROUTES
 const patientRoutes = require('./routes/patientRoutes');
 app.use('/api/patients', patientRoutes);
 
-// ⚡ DOCTOR ROUTES
 const doctorRoutes = require('./routes/doctorRoutes');
 app.use('/api/doctors', doctorRoutes);
 
-// ⚡ APPOINTMENT ROUTES
 const appointmentRoutes = require('./routes/appointmentRoutes');
 app.use('/api/appointments', appointmentRoutes);
 
-// ⚡ INVOICE ROUTES
 const invoiceRoutes = require('./routes/invoiceRoutes');
 app.use('/api/invoices', invoiceRoutes);
 
-// ⚡ LABORATORY ROUTES
 const labRoutes = require('./routes/labRoutes');
 app.use('/api/lab', labRoutes);
 
@@ -105,7 +98,6 @@ app.use('/api/lab', labRoutes);
 // ❌ ERROR HANDLING
 // ===========================================
 
-// 404 Handler (Route not found)
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
@@ -114,9 +106,14 @@ app.use((req, res, next) => {
   });
 });
 
-// Global Error Handler
 app.use((err, req, res, next) => {
   console.error('💥 Error:', err.stack);
+  
+  // تجاهل أخطاء البروكسي البسيطة
+  if (err.code === 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR') {
+    console.warn('⚠️ Proxy header warning (non-critical)');
+    return next();
+  }
   
   res.status(err.statusCode || 500).json({
     success: false,
@@ -124,9 +121,5 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err.stack : 'SERVER_ERROR'
   });
 });
-
-// ===========================================
-// 📤 EXPORT APP
-// ===========================================
 
 module.exports = app;
