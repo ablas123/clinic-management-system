@@ -68,9 +68,9 @@ app.get('/', (req, res) => {
       health: '/api/health',
       auth: '/api/auth',
       patients: '/api/patients',
-      doctors: '/api/doctors',
-      appointments: '/api/appointments',
-      invoices: '/api/invoices'
+      doctors: '/api/doctors (coming soon)',
+      appointments: '/api/appointments (coming soon)',
+      invoices: '/api/invoices (coming soon)'
     }
   });
 });
@@ -79,13 +79,15 @@ app.get('/', (req, res) => {
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
+// ⚡ PATIENT ROUTES (Activated)
+const patientRoutes = require('./routes/patientRoutes');
+app.use('/api/patients', patientRoutes);
+
 // ⚠️ Other Routes (Will be added in next steps)
-// const patientRoutes = require('./routes/patientRoutes');
 // const doctorRoutes = require('./routes/doctorRoutes');
 // const appointmentRoutes = require('./routes/appointmentRoutes');
 // const invoiceRoutes = require('./routes/invoiceRoutes');
 
-// app.use('/api/patients', patientRoutes);
 // app.use('/api/doctors', doctorRoutes);
 // app.use('/api/appointments', appointmentRoutes);
 // app.use('/api/invoices', invoiceRoutes);
@@ -118,4 +120,4 @@ app.use((err, req, res, next) => {
 // 📤 EXPORT APP
 // ===========================================
 
-module.exports = app; 
+module.exports = app;
