@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Stethoscope, Plus, Trash2, Edit, Search, ArrowLeft, Loader2, AlertCircle, X, CheckCircle, XCircle } from 'lucide-react';
+import { Stethoscope, Plus, Trash2, Search, ArrowLeft, Loader2, AlertCircle, X, CheckCircle, XCircle } from 'lucide-react';
 
 const Doctors = () => {
   const { logout } = useAuth();
