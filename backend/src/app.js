@@ -68,7 +68,7 @@ app.get('/', (req, res) => {
       health: '/api/health',
       auth: '/api/auth',
       patients: '/api/patients',
-      doctors: '/api/doctors (coming soon)',
+      doctors: '/api/doctors',
       appointments: '/api/appointments (coming soon)',
       invoices: '/api/invoices (coming soon)'
     }
@@ -83,12 +83,14 @@ app.use('/api/auth', authRoutes);
 const patientRoutes = require('./routes/patientRoutes');
 app.use('/api/patients', patientRoutes);
 
+// ⚡ DOCTOR ROUTES (Activated)
+const doctorRoutes = require('./routes/doctorRoutes');
+app.use('/api/doctors', doctorRoutes);
+
 // ⚠️ Other Routes (Will be added in next steps)
-// const doctorRoutes = require('./routes/doctorRoutes');
 // const appointmentRoutes = require('./routes/appointmentRoutes');
 // const invoiceRoutes = require('./routes/invoiceRoutes');
 
-// app.use('/api/doctors', doctorRoutes);
 // app.use('/api/appointments', appointmentRoutes);
 // app.use('/api/invoices', invoiceRoutes);
 
