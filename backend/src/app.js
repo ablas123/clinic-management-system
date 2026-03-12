@@ -70,30 +70,31 @@ app.get('/', (req, res) => {
       patients: '/api/patients',
       doctors: '/api/doctors',
       appointments: '/api/appointments',
-      invoices: '/api/invoices (coming soon)'
-    }
+      invoices: '/api/invoices'
+    },
+    documentation: 'https://github.com/yourname/clinic-management-system'
   });
 });
 
-// ⚡ AUTH ROUTES (Activated)
+// ⚡ AUTH ROUTES
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-// ⚡ PATIENT ROUTES (Activated)
+// ⚡ PATIENT ROUTES
 const patientRoutes = require('./routes/patientRoutes');
 app.use('/api/patients', patientRoutes);
 
-// ⚡ DOCTOR ROUTES (Activated)
+// ⚡ DOCTOR ROUTES
 const doctorRoutes = require('./routes/doctorRoutes');
 app.use('/api/doctors', doctorRoutes);
 
-// ⚡ APPOINTMENT ROUTES (Activated)
+// ⚡ APPOINTMENT ROUTES
 const appointmentRoutes = require('./routes/appointmentRoutes');
 app.use('/api/appointments', appointmentRoutes);
 
-// ⚠️ Other Routes (Will be added in next steps)
-// const invoiceRoutes = require('./routes/invoiceRoutes');
-// app.use('/api/invoices', invoiceRoutes);
+// ⚡ INVOICE ROUTES
+const invoiceRoutes = require('./routes/invoiceRoutes');
+app.use('/api/invoices', invoiceRoutes);
 
 // ===========================================
 // ❌ ERROR HANDLING
