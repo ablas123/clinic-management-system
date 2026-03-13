@@ -39,22 +39,24 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // ✅ CREATE SESSION: استخدام متغير لتجنب مشكلة :
-    const sessionConfig = {
-      userId: user.id,
-      token: token,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    // ✅ CREATE SESSION: بناء الكائن كاملاً في متغير
+    const sessionCreateConfig = {
+      data: {
+        userId: user.id,
+        token: token,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      }
     };
-    await prisma.session.create({  sessionConfig });
+    await prisma.session.create(sessionCreateConfig);
 
-    // ✅ UPDATE USER: استخدام متغير لتجنب مشكلة :
+    // ✅ UPDATE USER: بناء الكائن كاملاً في متغير
     const userUpdateConfig = {
-      lastLogin: new Date()
-    };
-    await prisma.user.update({
       where: { id: user.id },
-       userUpdateConfig
-    });
+      data: {
+        lastLogin: new Date()
+      }
+    };
+    await prisma.user.update(userUpdateConfig);
 
     const userData = {
       id: user.id,
@@ -67,13 +69,13 @@ router.post('/login', async (req, res) => {
       labProfile: user.labProfile
     };
 
-    // ✅ RESPONSE: استخدام متغير لتجنب مشكلة :
-    const responseData = {
+    // ✅ RESPONSE: بناء الكائن في متغير
+    const loginResponse = {
       success: true,
       message: 'Login successful',
-       { user: userData, token: token }
+      data: { user: userData, token: token }
     };
-    res.json(responseData);
+    res.json(loginResponse);
 
   } catch (e) {
     console.error('Login error:', e);
@@ -119,8 +121,8 @@ router.get('/me', authenticate, async (req, res) => {
       labProfile: user.labProfile
     };
     
-    const responseData = { success: true,  { user: userData } };
-    res.json(responseData);
+    const userResponse = { success: true, data: { user: userData } };
+    res.json(userResponse);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -136,8 +138,8 @@ router.post('/refresh', authenticate, async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    const responseData = { success: true,  { token: token } };
-    res.json(responseData);
+    const refreshResponse = { success: true, data: { token: token } };
+    res.json(refreshResponse);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
