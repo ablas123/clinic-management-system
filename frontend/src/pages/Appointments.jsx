@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Calendar, Plus, Trash2, Search, ArrowLeft, Loader2, AlertCircle, X, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Plus, Trash2, Search, ArrowLeft, Loader2, AlertCircle, X, CheckCircle, XCircle } from 'lucide-react';
 
 const Appointments = () => {
   const { logout } = useAuth();
@@ -19,9 +19,8 @@ const Appointments = () => {
     patientId: '',
     doctorId: '',
     date: '',
-    time: '',
-    type: 'CHECKUP',
-    notes: ''
+    reason: '',
+    status: 'PENDING'
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,16 +33,11 @@ const Appointments = () => {
       setLoading(true);
       setError('');
       
-      console.log('🔍 Fetching appointments, doctors, patients...');
-      
       const [aptRes, docRes, patRes] = await Promise.all([
         api.get('/appointments'),
         api.get('/doctors'),
         api.get('/patients')
       ]);
-      
-      console.log('✅ Doctors:', docRes.data?.data?.doctors?.length);
-      console.log('✅ Patients:', patRes.data?.data?.patients?.length);
       
       if (aptRes.data?.success) setAppointments(aptRes.data.data?.appointments || []);
       if (docRes.data?.success) setDoctors(docRes.data.data?.doctors || []);
@@ -66,16 +60,18 @@ const Appointments = () => {
     setError('');
 
     try {
-      console.log('📤 Booking appointment:', formData);
-      
-      const response = await api.post('/appointments', formData);
-      
-      console.log('✅ Appointment booked:', response.data);
-      
+      const response = await api.post('/appointments', {
+        patientId: formData.patientId,
+        doctorId: formData.doctorId,
+        date: formData.date,
+        reason: formData.reason,
+        status: formData.status
+      });
+
       if (response.data?.success) {
         setAppointments([response.data.data?.appointment, ...appointments]);
         setShowForm(false);
-        setFormData({ patientId: '', doctorId: '', date: '', time: '', type: 'CHECKUP', notes: '' });
+        setFormData({ patientId: '', doctorId: '', date: '', reason: '', status: 'PENDING' });
       }
     } catch (err) {
       console.error('❌ Error booking appointment:', err);
@@ -132,7 +128,8 @@ const Appointments = () => {
     const patientName = apt.patient?.firstName + ' ' + apt.patient?.lastName;
     const doctorName = apt.doctor?.name;
     return patientName?.toLowerCase().includes(search.toLowerCase()) ||
-           doctorName?.toLowerCase().includes(search.toLowerCase());
+           doctorName?.toLowerCase().includes(search.toLowerCase()) ||
+           apt.reason?.toLowerCase().includes(search.toLowerCase());
   });
 
   return (
@@ -172,7 +169,6 @@ const Appointments = () => {
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
-              {/* ✅ قائمة المرضى: عرض الاسم الكامل */}
               <select 
                 value={formData.patientId} 
                 onChange={(e) => setFormData({...formData, patientId: e.target.value})} 
@@ -182,12 +178,11 @@ const Appointments = () => {
                 <option value="">اختر المريض</option>
                 {patients.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.firstName} {p.lastName} {p.email ? `(${p.email})` : ''}
+                    {p.firstName} {p.lastName}
                   </option>
                 ))}
               </select>
 
-              {/* ✅ قائمة الأطباء: عرض الاسم والتخصص */}
               <select 
                 value={formData.doctorId} 
                 onChange={(e) => setFormData({...formData, doctorId: e.target.value})} 
@@ -203,16 +198,8 @@ const Appointments = () => {
               </select>
 
               <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="time" value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
               
-              <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2">
-                <option value="CHECKUP">كشف عام</option>
-                <option value="FOLLOWUP">متابعة</option>
-                <option value="CONSULTATION">استشارة</option>
-                <option value="PROCEDURE">إجراء</option>
-              </select>
-              
-              <input type="text" placeholder="ملاحظات (اختياري)" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" />
+              <input type="text" placeholder="سبب الموعد (اختياري)" value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" />
               
               <div className="md:col-span-2 flex gap-3 pt-2">
                 <button type="submit" disabled={submitting} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
@@ -228,7 +215,7 @@ const Appointments = () => {
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input type="text" placeholder="بحث باسم المريض أو الطبيب..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg" />
+            <input type="text" placeholder="بحث باسم المريض أو الطبيب أو السبب..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg" />
           </div>
         </div>
 
@@ -253,7 +240,8 @@ const Appointments = () => {
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">#</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المريض</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">الطبيب</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">التاريخ والوقت</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">التاريخ</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">السبب</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">الحالة</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
                   </tr>
@@ -269,10 +257,10 @@ const Appointments = () => {
                         {apt.doctor?.name}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          {apt.date} {apt.time}
-                        </div>
+                        {apt.date}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">
+                        {apt.reason || '-'}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>{getStatusLabel(apt.status)}</span>
@@ -303,5 +291,4 @@ const Appointments = () => {
   );
 };
 
-// ✅ هذا السطر ضروري جداً!
 export default Appointments;
