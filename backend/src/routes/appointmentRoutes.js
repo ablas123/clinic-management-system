@@ -1,15 +1,20 @@
+// File: backend/src/routes/appointmentRoutes.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
+const DATA_KEY = 'data';
 
-// GET ALL
-router.get('/', authenticate, async (req, res) => {
+// ===========================================
+// GET ALL APPOINTMENTS
+// ===========================================
+router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), async (req, res) => {
   try {
     const { page = 1, limit = 10, search, status, date } = req.query;
     const where = {};
+
     if (search) {
       where.OR = [
         { patient: { firstName: { contains: search, mode: 'insensitive' } } },
@@ -21,32 +26,40 @@ router.get('/', authenticate, async (req, res) => {
     if (status) where.status = status;
     if (date) where.date = new Date(date);
 
-    const findConfig = {
-      where: where,
-      skip: (parseInt(page) - 1) * parseInt(limit),
-      take: parseInt(limit),
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true, date: true, reason: true, status: true,
-        patientId: true, doctorId: true,
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        doctor: { select: { id: true, user: { select: { firstName: true, lastName: true } }, specialty: true } },
-        createdAt: true, updatedAt: true
-      }
-    };
-    const appointments = await prisma.appointment.findMany(findConfig);
-    const countConfig = { where: where };
-    const total = await prisma.appointment.count(countConfig);
+    // If DOCTOR, only show their appointments
+    if (req.user.role === 'DOCTOR') {
+      const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
+      if (doctor) where.doctorId = doctor.id;
+    }
+
+    const [appointments, total] = await Promise.all([
+      prisma.appointment.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: parseInt(limit),
+        orderBy: { date: 'asc' },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
+          doctor: { 
+            include: { 
+              user: { select: { firstName: true, lastName: true } } 
+            } 
+          },
+          invoice: { select: { id: true, totalAmount: true, status: true } }
+        }
+      }),
+      prisma.appointment.count({ where })
+    ]);
 
     const responseData = {
       success: true,
-      data: {
-        appointments: appointments,
+      ['data']: {
+        appointments,
         pagination: {
-          total: total,
+          total,
           page: parseInt(page),
           limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit))
+          pages: Math.ceil(total / limit)
         }
       }
     };
@@ -56,70 +69,116 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// CREATE
-router.post('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), async (req, res) => {
+// ===========================================
+// CREATE APPOINTMENT - ✅ مع توليد فاتورة مبدئية تلقائياً
+// ===========================================
+router.post('/', authenticate, authorize('RECEPTIONIST', 'ADMIN'), async (req, res) => {
   try {
-    const { patientId, doctorId, date, reason, status } = req.body;
+    const { patientId, doctorId, date, startTime, endTime, type, reason, notes } = req.body;
+
     if (!patientId || !doctorId || !date) {
       return res.status(400).json({ success: false, message: 'Patient, doctor, and date are required' });
     }
 
-    const appointmentDate = new Date(date);
-    if (isNaN(appointmentDate.getTime())) {
-      return res.status(400).json({ success: false, message: 'Invalid date format' });
+    // ✅ 1. إنشاء الموعد أولاً
+    const appointmentPayload = {
+      patientId,
+      doctorId,
+      date: new Date(date),
+      startTime: startTime || null,
+      endTime: endTime || null,
+      type: type || 'CHECKUP',
+      status: 'SCHEDULED',
+      reason: reason || null,
+      notes: notes || null
+    };
+    const appointmentConfig = { [DATA_KEY]: appointmentPayload };
+    const appointment = await prisma.appointment.create(appointmentConfig);
+
+    // ✅ 2. جلب سعر استشارة الطبيب
+    const doctor = await prisma.doctor.findUnique({ 
+      where: { id: doctorId },
+      select: { consultationFee: true, user: { select: { firstName: true, lastName: true } } }
+    });
+
+    // ✅ 3. توليد فاتورة مبدئية تلقائياً
+    if (doctor?.consultationFee > 0) {
+      const invoicePayload = {
+        patientId,
+        appointmentId: appointment.id,
+        totalAmount: doctor.consultationFee,
+        paidAmount: 0,
+        discount: 0,
+        description: `استشارة مع د. ${doctor.user.firstName} ${doctor.user.lastName}`,
+        status: 'PENDING',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 أيام
+      };
+      const invoiceConfig = { [DATA_KEY]: invoicePayload };
+      await prisma.invoice.create(invoiceConfig);
     }
 
-    const createConfig = {
-      data: {
-        patientId: patientId,
-        doctorId: doctorId,
-        date: appointmentDate,
-        reason: reason || null,
-        status: status || 'SCHEDULED'
-      },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        doctor: { select: { id: true, specialty: true, user: { select: { firstName: true, lastName: true } } } }
-      }
+    const responseData = { 
+      success: true, 
+      message: 'Appointment booked + invoice generated', 
+      ['data']: { appointment } 
     };
-    const appointment = await prisma.appointment.create(createConfig);
-
-    const responseData = { success: true, message: 'Appointment booked', data: { appointment: appointment } };
     res.status(201).json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
-// UPDATE STATUS
-router.patch('/:id/status', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), async (req, res) => {
+// ===========================================
+// UPDATE APPOINTMENT STATUS - ✅ مع تحديث الفاتورة
+// ===========================================
+router.patch('/:id/status', authenticate, authorize('DOCTOR', 'ADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, prescription, vitalSigns } = req.body;
 
-    const updateConfig = {
-      where: { id: id },
-      data: { status: status }
+    const existing = await prisma.appointment.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    // ✅ تحديث الموعد
+    const updatePayload = {
+      status: status || existing.status,
+      prescription: prescription !== undefined ? prescription : existing.prescription,
+      vitalSigns: vitalSigns !== undefined ? vitalSigns : existing.vitalSigns
     };
+    const updateConfig = { where: { id }, [DATA_KEY]: updatePayload };
     const appointment = await prisma.appointment.update(updateConfig);
 
-    const responseData = { success: true, message: 'Status updated', data: { appointment: appointment } };
+    // ✅ إذا اكتمل الموعد، تحديث حالة الفاتورة إلى "قابلة للدفع"
+    if (status === 'COMPLETED' && existing.invoiceId) {
+      await prisma.invoice.update({
+        where: { id: existing.invoiceId },
+        [DATA_KEY]: { status: 'PENDING' }
+      });
+    }
+
+    const responseData = { 
+      success: true, 
+      message: 'Status updated', 
+      ['data']: { appointment } 
+    };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
-// DELETE
-router.delete('/:id', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), async (req, res) => {
+// ===========================================
+// DELETE APPOINTMENT
+// ===========================================
+router.delete('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
-    const existingConfig = { where: { id: req.params.id } };
-    const existing = await prisma.appointment.findUnique(existingConfig);
-    if (!existing) return res.status(404).json({ success: false, message: 'Appointment not found' });
-
-    const deleteConfig = { where: { id: req.params.id } };
-    await prisma.appointment.delete(deleteConfig);
-
+    const existing = await prisma.appointment.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+    await prisma.appointment.delete({ where: { id: req.params.id } });
     res.json({ success: true, message: 'Appointment cancelled' });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
