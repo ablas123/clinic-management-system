@@ -1,66 +1,152 @@
-// ===========================================
-// 🧪 LABORATORY ROUTES
-// ===========================================
-
 const express = require('express');
 const router = express.Router();
-const {
-  getAllLabTests,
-  getLabTestById,
-  createLabTest,
-  updateLabTest,
-  deleteLabTest,
-  toggleLabTestAvailability,
-  getAllLabResults,
-  getLabResultById,
-  createLabResult,
-  updateLabResultStatus,
-  completeLabResult,
-  cancelLabResult,
-  getLabResultsByPatient,
-  getLabStats
-} = require('../controllers/labController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 // ===========================================
-// 🌐 PUBLIC ROUTES (No Authentication Required)
+// GET ALL LAB TESTS
 // ===========================================
-
-// GET /api/lab/tests - Get all lab tests (PUBLIC - like a service catalog)
-router.get('/tests', getAllLabTests);
-
-// GET /api/lab/tests/:id - Get single lab test (PUBLIC)
-router.get('/tests/:id', getLabTestById);
+router.get('/tests', async (req, res) => {
+  try {
+    const labTests = await prisma.labTest.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        category: true,
+        price: true,
+        unit: true,
+        referenceRange: true,
+        isFasting: true,
+        turnaroundTime: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const responseData = { success: true, data: { labTests: labTests } };
+    res.json(responseData);
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 // ===========================================
-// 🔒 PROTECTED ROUTES (Authentication Required)
+// GET LAB TEST BY ID
 // ===========================================
+router.get('/tests/:id', async (req, res) => {
+  try {
+    const labTest = await prisma.labTest.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        category: true,
+        price: true,
+        unit: true,
+        referenceRange: true,
+        isFasting: true,
+        turnaroundTime: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+    
+    if (!labTest) {
+      return res.status(404).json({ success: false, message: 'Lab test not found' });
+    }
+    
+    const responseData = { success: true, data: { labTest: labTest } };
+    res.json(responseData);
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
-// Apply protect middleware from this point forward
-router.use(protect);
+// ===========================================
+// CREATE LAB TEST - ✅ مع include آمن
+// ===========================================
+router.post('/tests', async (req, res) => {
+  try {
+    const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime } = req.body;
+    
+    if (!name || !code || !category || !price) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Name, code, category, and price are required' 
+      });
+    }
+    
+    const labTest = await prisma.labTest.create({
+      data: {
+        name: name,
+        code: code,
+        category: category,
+        price: parseFloat(price),
+        unit: unit || null,
+        referenceRange: referenceRange || null,
+        isFasting: isFasting === 'true' || isFasting === true,
+        turnaroundTime: parseInt(turnaroundTime) || 24
+      }
+    });
+    
+    const responseData = { success: true, data: { labTest: labTest } };
+    res.status(201).json(responseData);
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
-// GET /api/lab/tests/stats - Get lab statistics (Admin only)
-router.get('/tests/stats', authorize('ADMIN'), getLabStats);
+// ===========================================
+// UPDATE LAB TEST
+// ===========================================
+router.put('/tests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime } = req.body;
+    
+    const existing = await prisma.labTest.findUnique({ where: { id: id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Lab test not found' });
+    }
+    
+    const labTest = await prisma.labTest.update({
+      where: { id: id },
+      data: {
+        name: name !== undefined ? name : existing.name,
+        code: code !== undefined ? code : existing.code,
+        category: category !== undefined ? category : existing.category,
+        price: price !== undefined ? parseFloat(price) : existing.price,
+        unit: unit !== undefined ? unit : existing.unit,
+        referenceRange: referenceRange !== undefined ? referenceRange : existing.referenceRange,
+        isFasting: isFasting !== undefined ? (isFasting === 'true' || isFasting === true) : existing.isFasting,
+        turnaroundTime: turnaroundTime !== undefined ? parseInt(turnaroundTime) : existing.turnaroundTime
+      }
+    });
+    
+    const responseData = { success: true, data: { labTest: labTest } };
+    res.json(responseData);
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
-// POST /api/lab/tests - Create new lab test (Admin only)
-router.post('/tests', authorize('ADMIN'), createLabTest);
-
-// PUT /api/lab/tests/:id - Update lab test (Admin only)
-router.put('/tests/:id', authorize('ADMIN'), updateLabTest);
-
-// DELETE /api/lab/tests/:id - Delete lab test (Admin only)
-router.delete('/tests/:id', authorize('ADMIN'), deleteLabTest);
-
-// PATCH /api/lab/tests/:id/availability - Toggle availability (Admin only)
-router.patch('/tests/:id/availability', authorize('ADMIN'), toggleLabTestAvailability);
-
-// 📊 LAB RESULTS (All require authentication)
-router.get('/results', authorize('ADMIN', 'DOCTOR', 'LAB_TECH'), getAllLabResults);
-router.get('/results/:id', authorize('ADMIN', 'DOCTOR', 'LAB_TECH'), getLabResultById);
-router.post('/results', authorize('ADMIN', 'DOCTOR'), createLabResult);
-router.patch('/results/:id/status', authorize('ADMIN', 'LAB_TECH'), updateLabResultStatus);
-router.patch('/results/:id/complete', authorize('ADMIN', 'LAB_TECH', 'DOCTOR'), completeLabResult);
-router.patch('/results/:id/cancel', authorize('ADMIN', 'DOCTOR'), cancelLabResult);
-router.get('/results/patient/:patientId', authorize('ADMIN', 'DOCTOR', 'LAB_TECH'), getLabResultsByPatient);
+// ===========================================
+// DELETE LAB TEST
+// ===========================================
+router.delete('/tests/:id', async (req, res) => {
+  try {
+    const existing = await prisma.labTest.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Lab test not found' });
+    }
+    await prisma.labTest.delete({ where: { id: req.params.id } });
+    res.json({ success: true, message: 'Lab test deleted' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 module.exports = router;
