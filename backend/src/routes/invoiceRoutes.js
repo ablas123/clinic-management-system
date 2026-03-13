@@ -1,128 +1,229 @@
-// ===========================================
-// 💰 INVOICES ROUTES - COMPLETE & CORRECTED
-// ===========================================
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// 📥 GET ALL
+// ===========================================
+// GET ALL INVOICES
+// ===========================================
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, search, status } = req.query;
     const where = {};
-    if (search) where.OR = [{ description: { contains: search, mode: 'insensitive' } }];
-    if (status) where.status = status;
+
+    if (search) {
+      where.OR = [
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    if (status) {
+      where.status = status;
+    }
 
     const [invoices, total] = await Promise.all([
       prisma.invoice.findMany({
-        where, skip: (page-1)*limit, take: parseInt(limit), orderBy: { createdAt: 'desc' },
+        where,
+        skip: (page - 1) * limit,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
         select: {
-          id: true, amount: true, description: true, status: true, dueDate: true,
-          patient: { select: { id: true, name: true } },
-          createdAt: true, updatedAt: true
+          id: true,
+          amount: true,
+          description: true,
+          status: true,
+          dueDate: true,
+          patient: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          createdAt: true,
+          updatedAt: true
         }
       }),
       prisma.invoice.count({ where })
     ]);
 
-    res.json({ success: true,  { invoices, pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total/limit) } } });
+    res.json({
+      success: true,
+      data: {
+        invoices: invoices,
+        pagination: {
+          total: total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
   } catch (e) {
-    console.error('❌ Get invoices error:', e);
-    res.status(500).json({ success: false, message: e.message || 'Failed' });
+    console.error('Get invoices error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to fetch invoices' });
   }
 });
 
-// 📥 GET BY ID
+// ===========================================
+// GET INVOICE BY ID
+// ===========================================
 router.get('/:id', async (req, res) => {
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
       select: {
-        id: true, amount: true, description: true, status: true, dueDate: true,
-        patient: { select: { id: true, name: true } },
-        createdAt: true, updatedAt: true
+        id: true,
+        amount: true,
+        description: true,
+        status: true,
+        dueDate: true,
+        patient: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        createdAt: true,
+        updatedAt: true
       }
     });
-    if (!invoice) return res.status(404).json({ success: false, message: 'Not found' });
-    res.json({ success: true,  { invoice } });
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    res.json({
+      success: true,
+      data: {
+        invoice: invoice
+      }
+    });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+    console.error('Get invoice error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to fetch invoice' });
   }
 });
 
-// 📤 CREATE - ✅  قبل {
+// ===========================================
+// CREATE INVOICE
+// ===========================================
 router.post('/', async (req, res) => {
   try {
     const { patientId, amount, description, status, dueDate } = req.body;
+
     if (!patientId || !amount || !description) {
-      return res.status(400).json({ success: false, message: 'Required fields missing' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Patient ID, amount, and description are required' 
+      });
     }
+
     const invoice = await prisma.invoice.create({
-      data: {  // ← ✅ هذا هو الصحيح
-        patientId,
+      data: {
+        patientId: patientId,
         amount: parseFloat(amount),
-        description,
+        description: description,
         status: status || 'PENDING',
         dueDate: dueDate ? new Date(dueDate) : null
       }
     });
-    res.status(201).json({ success: true, message: 'Created',  { invoice } });
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Invoice created successfully', 
+      data: {
+        invoice: invoice
+      } 
+    });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+    console.error('Create invoice error:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: e.message || 'Failed to create invoice' 
+    });
   }
 });
 
-// ✏️ UPDATE - ✅  قبل {
+// ===========================================
+// UPDATE INVOICE
+// ===========================================
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { amount, description, status, dueDate } = req.body;
-    const existing = await prisma.invoice.findUnique({ where: { id } });
-    if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const existing = await prisma.invoice.findUnique({ where: { id: id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
 
     const invoice = await prisma.invoice.update({
-      where: { id },
-       {  // ← ✅ هذا هو الصحيح
+      where: { id: id },
+      data: {
         amount: amount ? parseFloat(amount) : existing.amount,
-        description: description ?? existing.description,
-        status: status ?? existing.status,
+        description: description !== undefined ? description : existing.description,
+        status: status !== undefined ? status : existing.status,
         dueDate: dueDate ? new Date(dueDate) : existing.dueDate
       }
     });
-    res.json({ success: true, message: 'Updated',  { invoice } });
+    
+    res.json({ 
+      success: true, 
+      message: 'Invoice updated', 
+      data: {
+        invoice: invoice
+      } 
+    });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+    console.error('Update invoice error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update invoice' });
   }
 });
 
-// 🗑️ DELETE
+// ===========================================
+// DELETE INVOICE
+// ===========================================
 router.delete('/:id', async (req, res) => {
   try {
     const existing = await prisma.invoice.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
     await prisma.invoice.delete({ where: { id: req.params.id } });
-    res.json({ success: true, message: 'Deleted' });
+    res.json({ success: true, message: 'Invoice deleted' });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+    console.error('Delete invoice error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to delete invoice' });
   }
 });
 
-// 🔄 UPDATE STATUS - ✅ data: قبل {
+// ===========================================
+// UPDATE INVOICE STATUS
+// ===========================================
 router.patch('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const existing = await prisma.invoice.findUnique({ where: { id } });
-    if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
     
-    const invoice = await prisma.invoice.update({
-      where: { id },
-       { status }  // ← ✅ هذا هو الصحيح
+    const existing = await prisma.invoice.findUnique({ where: { id: id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    
+    const invoice = await prisma.invoice.update({ 
+      where: { id: id }, 
+      data: { 
+        status: status 
+      } 
     });
-    res.json({ success: true, message: 'Status updated',  { invoice } });
+    
+    res.json({ 
+      success: true, 
+      message: 'Status updated', 
+      data: {
+        invoice: invoice
+      } 
+    });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+    console.error('Update status error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update status' });
   }
 });
 
