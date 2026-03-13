@@ -1,76 +1,128 @@
-// ===========================================
-// 🏥 CLINIC MANAGEMENT SYSTEM - SERVER ENTRY POINT
-// ===========================================
-
 require('dotenv').config();
-const app = require('./src/app');
+const express = require('express');
+const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 
-// Initialize Prisma Client
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+const app = express();
+const prisma = new PrismaClient();
+const PORT = process.env.PORT || 5000;
+
+// ===========================================
+// 🛡️ MIDDLEWARE
+// ===========================================
+app.use(cors({
+  origin: ['https://clinic-frontend-3lwi.onrender.com', 'http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ===========================================
+// 📝 REQUEST LOGGING
+// ===========================================
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
 });
 
-// Server Port
-const PORT = process.env.PORT || 5000;
+// ===========================================
+// 🏥 HEALTH CHECK
+// ===========================================
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ 
+      success: true, 
+      message: 'Server is running', 
+      timestamp: new Date().toISOString() 
+    });
+  } catch (e) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Database connection failed',
+      error: e.message 
+    });
+  }
+});
+
+// ===========================================
+// 🔐 AUTH ROUTES
+// ===========================================
+const authRoutes = require('./src/routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
+// ===========================================
+// 👥 PATIENT ROUTES
+// ===========================================
+const patientRoutes = require('./src/routes/patientRoutes');
+app.use('/api/patients', patientRoutes);
+
+// ===========================================
+// 👨‍⚕️ DOCTOR ROUTES
+// ===========================================
+const doctorRoutes = require('./src/routes/doctorRoutes');
+app.use('/api/doctors', doctorRoutes);
+
+// ===========================================
+// 📅 APPOINTMENT ROUTES
+// ===========================================
+const appointmentRoutes = require('./src/routes/appointmentRoutes');
+app.use('/api/appointments', appointmentRoutes);
+
+// ===========================================
+// 💰 INVOICE ROUTES
+// ===========================================
+const invoiceRoutes = require('./src/routes/invoiceRoutes');
+app.use('/api/invoices', invoiceRoutes);
+
+// ===========================================
+// 🧪 LAB ROUTES
+// ===========================================
+const labRoutes = require('./src/routes/labRoutes');
+app.use('/api/lab', labRoutes);
+
+// ===========================================
+// ❌ 404 HANDLER
+// ===========================================
+app.use((req, res) => {
+  res.status(404).json({ 
+    success: false, 
+    message: 'Route not found' 
+  });
+});
+
+// ===========================================
+// 🛑 ERROR HANDLER
+// ===========================================
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({ 
+    success: false, 
+    message: err.message || 'Internal server error' 
+  });
+});
 
 // ===========================================
 // 🚀 START SERVER
 // ===========================================
-
-async function startServer() {
-  try {
-    // Connect to Database
-    await prisma.$connect();
-    console.log('✅ Connected to PostgreSQL via Neon');
-    
-    // Start HTTP Server
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🏥 Clinic API: http://localhost:${PORT}/api/health`);
-    });
-    
-  } catch (error) {
-    console.error('❌ Failed to start server:', error.message);
-    
-    // Close Prisma connection on error
-    await prisma.$disconnect();
-    process.exit(1);
-  }
-}
+app.listen(PORT, () => {
+  console.log('✅ Connected to PostgreSQL via Neon');
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🏥 Clinic API: http://localhost:${PORT}/api/health`);
+});
 
 // ===========================================
 // 🛑 GRACEFUL SHUTDOWN
 // ===========================================
-
-// Handle SIGTERM (Render/Heroku shutdown signal)
 process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received. Shutting down gracefully...');
   await prisma.$disconnect();
   process.exit(0);
 });
 
-// Handle SIGINT (Ctrl+C)
 process.on('SIGINT', async () => {
   console.log('🛑 SIGINT received. Shutting down gracefully...');
   await prisma.$disconnect();
   process.exit(0);
 });
-
-// Handle uncaught exceptions
-process.on('uncaughtException', async (error) => {
-  console.error('💥 Uncaught Exception:', error);
-  await prisma.$disconnect();
-  process.exit(1);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', async (reason, promise) => {
-  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
-  await prisma.$disconnect();
-  process.exit(1);
-});
-
-// Start the server
-startServer();
