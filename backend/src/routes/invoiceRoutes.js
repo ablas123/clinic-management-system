@@ -1,7 +1,8 @@
 // ===========================================
-// 💰 INVOICES ROUTES - مطابق لـ Prisma Schema
+// 💰 INVOICES ROUTES - FINAL CORRECTED VERSION
 // ===========================================
 // File: backend/src/routes/invoiceRoutes.js
+// ✅ جميع استعلامات Prisma تحتوي على data: قبل {
 
 const express = require('express');
 const router = express.Router();
@@ -53,7 +54,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-       {
+      data: {  // ✅ data: هنا
         invoices,
         pagination: {
           total,
@@ -95,7 +96,7 @@ router.get('/:id', async (req, res) => {
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
-    res.json({ success: true,  { invoice } });
+    res.json({ success: true, data: { invoice } });  // ✅ data: هنا
   } catch (e) {
     console.error('❌ Get invoice error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to fetch invoice' });
@@ -116,8 +117,9 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // ✅ CREATE: data: قبل {
     const invoice = await prisma.invoice.create({
-       {
+      data: {  // ← ✅ هذا هو الصحيح
         patientId,
         amount: parseFloat(amount),
         description,
@@ -129,7 +131,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Invoice created successfully', 
-       { invoice } 
+      data: { invoice } 
     });
   } catch (e) {
     console.error('❌ Create invoice error:', e);
@@ -153,16 +155,17 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
+    // ✅ UPDATE: data: قبل {
     const invoice = await prisma.invoice.update({
       where: { id },
-       {
+      data: {  // ← ✅ هذا هو الصحيح
         amount: amount ? parseFloat(amount) : existing.amount,
         description: description ?? existing.description,
         status: status ?? existing.status,
         dueDate: dueDate ? new Date(dueDate) : existing.dueDate
       }
     });
-    res.json({ success: true, message: 'Invoice updated',  { invoice } });
+    res.json({ success: true, message: 'Invoice updated', data: { invoice } });
   } catch (e) {
     console.error('❌ Update invoice error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update invoice' });
@@ -197,11 +200,12 @@ router.patch('/:id/status', async (req, res) => {
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
+    // ✅ UPDATE: data: قبل {
     const invoice = await prisma.invoice.update({ 
       where: { id }, 
-       { status } 
+      data: { status }  // ← ✅ هذا هو الصحيح
     });
-    res.json({ success: true, message: 'Status updated',  { invoice } });
+    res.json({ success: true, message: 'Status updated', data: { invoice } });
   } catch (e) {
     console.error('❌ Update status error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update status' });
