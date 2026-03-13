@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { TestTube, Plus, Search, ArrowLeft, Loader2, AlertCircle, X, FileText } from 'lucide-react';
+import { TestTube, Plus, Search, ArrowLeft, Loader2, AlertCircle, X } from 'lucide-react';
 
 const Lab = () => {
   const { logout } = useAuth();
@@ -36,12 +36,10 @@ const Lab = () => {
       const response = await api.get('/lab/tests');
       if (response.data?.success) {
         setLabTests(response.data.data?.labTests || []);
-      } else {
-        setError(response.data?.message || 'فشل جلب البيانات');
       }
     } catch (err) {
-      console.error('❌ Error fetching lab tests:', err);
-      setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
+      console.error('Error fetching lab tests:', err);
+      setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
         navigate('/login');
@@ -58,19 +56,38 @@ const Lab = () => {
 
     try {
       const response = await api.post('/lab/tests', {
-        ...formData,
+        name: formData.name,
+        code: formData.code,
+        category: formData.category,
         price: parseFloat(formData.price),
+        unit: formData.unit,
+        referenceRange: formData.referenceRange,
+        isFasting: formData.isFasting,
         turnaroundTime: parseInt(formData.turnaroundTime)
       });
+
       if (response.data?.success) {
         setLabTests([response.data.data?.labTest, ...labTests]);
         setShowForm(false);
         setFormData({ name: '', code: '', category: 'Blood', price: '', unit: '', referenceRange: '', isFasting: false, turnaroundTime: 24 });
       }
     } catch (err) {
+      console.error('Error creating lab test:', err);
       setError(err.response?.data?.message || 'فشل إضافة الفحص');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا الفحص؟')) return;
+    try {
+      const response = await api.delete(`/lab/tests/${id}`);
+      if (response.data?.success) {
+        setLabTests(labTests.filter(t => t.id !== id));
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'فشل حذف الفحص');
     }
   };
 
@@ -116,15 +133,15 @@ const Lab = () => {
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" placeholder="اسم الفحص" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="text" placeholder="الرمز (Code)" value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="text" placeholder="اسم الفحص *" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="text" placeholder="الرمز (Code) *" value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
               <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2">
                 <option value="Blood">دم</option>
                 <option value="Urine">بول</option>
                 <option value="X-Ray">أشعة</option>
                 <option value="Other">أخرى</option>
               </select>
-              <input type="number" placeholder="السعر" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required step="0.01" min="0" />
+              <input type="number" placeholder="السعر *" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required step="0.01" min="0" />
               <input type="text" placeholder="الوحدة (مثال: mg/dL)" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" />
               <input type="text" placeholder="المدى الطبيعي" value={formData.referenceRange} onChange={(e) => setFormData({...formData, referenceRange: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" />
               <select value={formData.isFasting} onChange={(e) => setFormData({...formData, isFasting: e.target.value === 'true'})} className="border border-gray-300 rounded-lg px-4 py-2">
@@ -154,7 +171,15 @@ const Lab = () => {
           {loading ? (
             <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-red-500 mb-2" /><p className="text-gray-600">جاري التحميل...</p></div>
           ) : filteredTests.length === 0 ? (
-            <div className="p-8 text-center text-gray-500"><TestTube className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>{search ? 'لا توجد نتائج' : 'لا توجد فحوصات'}</p></div>
+            <div className="p-8 text-center text-gray-500">
+              <TestTube className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{search ? 'لا توجد نتائج' : 'لا توجد فحوصات'}</p>
+              {!search && !showForm && (
+                <button onClick={() => setShowForm(true)} className="mt-4 text-red-600 hover:text-red-700 font-medium">
+                  + أضف أول فحص
+                </button>
+              )}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -166,6 +191,7 @@ const Lab = () => {
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">القسم</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">السعر</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">التفاصيل</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -177,10 +203,13 @@ const Lab = () => {
                       <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{test.category}</td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-800">{test.price?.toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                        <div className="flex items-center justify-center gap-2 text-xs">
                           {test.isFasting && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">صيام</span>}
                           <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">{test.turnaroundTime} ساعة</span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => handleDelete(test.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="حذف"><X className="w-4 h-4" /></button>
                       </td>
                     </tr>
                   ))}
