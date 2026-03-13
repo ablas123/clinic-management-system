@@ -1,85 +1,108 @@
-// ===========================================
-// 🔐 AUTHENTICATION & AUTHORIZATION MIDDLEWARE
-// ===========================================
-
 const jwt = require('jsonwebtoken');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // ===========================================
-// 🛡️ PROTECT ROUTES (Verify JWT Token)
+// 🔐 AUTHENTICATE (Verify JWT)
 // ===========================================
-
-const protect = async (req, res, next) => {
-  let token;
-
-  // 1. Check for token in Authorization header
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    try {
-      // 2. Extract token from "Bearer <token>"
-      token = req.headers.authorization.split(' ')[1];
-
-      // 3. Verify token using secret key
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // 4. Attach user info to request object
-      // Note: decoded contains { id, email, role } from the token
-      req.user = decoded;
-
-      // 5. Move to next middleware/controller
-      next();
-      
-    } catch (error) {
-      console.error('❌ Token verification failed:', error.message);
-      
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({
-          success: false,
-          message: 'Token expired, please login again',
-          error: 'TOKEN_EXPIRED'
-        });
-      }
-      
-      return res.status(401).json({
-        success: false,
-        message: 'Not authorized, invalid token',
-        error: 'INVALID_TOKEN'
+const authenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Access token required' 
       });
     }
-  }
 
-  // 6. No token found
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Not authorized, no token provided',
-      error: 'NO_TOKEN'
+    const token = authHeader.split(' ')[1];
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Check if session exists
+    const session = await prisma.session.findUnique({
+      where: { token: token }
+    });
+
+    if (!session || session.expiresAt < new Date()) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Session expired. Please login again.' 
+      });
+    }
+
+    // Check user status
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!user || user.status !== 'ACTIVE') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Account not active' 
+      });
+    }
+
+    // Attach user to request
+    req.user = {
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role
+    };
+
+    next();
+  } catch (e) {
+    if (e.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid token' 
+      });
+    }
+    if (e.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Token expired' 
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      message: 'Authentication failed' 
     });
   }
 };
 
 // ===========================================
-// 👑 AUTHORIZE ROLES (Check User Role)
+// 🔑 AUTHORIZE (Check Role Permissions)
 // ===========================================
-
-const authorize = (...roles) => {
+const authorize = (...allowedRoles) => {
   return (req, res, next) => {
-    // Check if user exists (attached by protect middleware)
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Not authorized to access this route',
-        error: 'NO_USER'
+    if (!req.user || !req.user.role) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication required' 
       });
     }
 
-    // Check if user role is included in allowed roles
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `User role '${req.user.role}' is not authorized to access this route`,
-        error: 'FORBIDDEN'
+    if (!allowedRoles.includes(req.user.role)) {
+      // Log unauthorized access attempt
+      prisma.auditLog.create({
+        data: {
+          userId: req.user.userId,
+          action: 'READ',
+          entityType: 'Unauthorized',
+          entityId: req.path,
+          ipAddress: req.ip,
+          details: `Role ${req.user.role} tried to access ${req.path}`
+        }
+      }).catch(() => {});
+
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Insufficient permissions' 
       });
     }
 
@@ -88,7 +111,28 @@ const authorize = (...roles) => {
 };
 
 // ===========================================
-// 📤 EXPORTS
+// 📝 AUDIT LOG HELPER
 // ===========================================
+const auditLog = async (req, action, entityType, entityId, details = null) => {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user?.userId || 'anonymous',
+        action: action,
+        entityType: entityType,
+        entityId: entityId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        details: details
+      }
+    });
+  } catch (e) {
+    console.error('Audit log error:', e);
+  }
+};
 
-module.exports = { protect, authorize };
+module.exports = { 
+  authenticate, 
+  authorize, 
+  auditLog 
+};
