@@ -7,7 +7,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const prisma = new PrismaClient();
 
 // ===========================================
-// GET ALL DOCTORS - Roles: ADMIN, RECEPTIONIST
+// GET ALL DOCTORS
 // ===========================================
 router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -47,9 +47,10 @@ router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, re
       prisma.doctor.count({ where })
     ]);
 
+    // ✅ استخدام ['data'] الآمن
     const responseData = {
       success: true,
-       {
+      ['data']: {
         doctors,
         pagination: {
           total,
@@ -66,7 +67,7 @@ router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, re
 });
 
 // ===========================================
-// GET DOCTOR BY ID - Roles: ADMIN, RECEPTIONIST
+// GET DOCTOR BY ID
 // ===========================================
 router.get('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -96,7 +97,7 @@ router.get('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
 
-    const responseData = { success: true,  { doctor } };
+    const responseData = { success: true, ['data']: { doctor } };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -104,7 +105,7 @@ router.get('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
 });
 
 // ===========================================
-// CREATE DOCTOR - Role: ADMIN only
+// CREATE DOCTOR - ✅ نمط آمن
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
@@ -114,10 +115,10 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Required fields missing' });
     }
 
-    // Create user first
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // ✅ إنشاء المستخدم أولاً
     const userConfig = {
        {
         email,
@@ -131,7 +132,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     };
     const user = await prisma.user.create(userConfig);
 
-    // Create doctor profile
+    // ✅ إنشاء ملف الطبيب
     const doctorConfig = {
        {
         userId: user.id,
@@ -144,7 +145,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     };
     const doctor = await prisma.doctor.create(doctorConfig);
 
-    const responseData = { success: true, message: 'Doctor created',  { doctor } };
+    const responseData = { success: true, message: 'Doctor created', ['data']: { doctor } };
     res.status(201).json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -152,14 +153,13 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ===========================================
-// UPDATE DOCTOR AVAILABILITY - Roles: ADMIN, DOCTOR (own)
+// UPDATE AVAILABILITY
 // ===========================================
 router.patch('/:id/availability', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const { isAvailable } = req.body;
 
-    // Check if user can update this doctor
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { id, userId: req.user.userId } });
       if (!doctor) {
@@ -169,12 +169,10 @@ router.patch('/:id/availability', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    const doctor = await prisma.doctor.update({
-      where: { id },
-       { isAvailable: isAvailable === true || isAvailable === 'true' }
-    });
+    const updateConfig = { where: { id },  { isAvailable: isAvailable === true || isAvailable === 'true' } };
+    const doctor = await prisma.doctor.update(updateConfig);
 
-    const responseData = { success: true, message: 'Availability updated',  { doctor } };
+    const responseData = { success: true, message: 'Availability updated', ['data']: { doctor } };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -182,7 +180,7 @@ router.patch('/:id/availability', authenticate, async (req, res) => {
 });
 
 // ===========================================
-// DELETE DOCTOR - Role: ADMIN only
+// DELETE DOCTOR
 // ===========================================
 router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
