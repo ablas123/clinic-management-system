@@ -1,5 +1,5 @@
 // ===========================================
-// 🏥 CLINIC MANAGEMENT SYSTEM - PRO SCHEMA
+// 🏥 CLINIC MANAGEMENT SYSTEM - PRO SCHEMA (FIXED)
 // ===========================================
 
 generator client {
@@ -93,8 +93,8 @@ model LabTechnician {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relations
-  labResults    LabResult[]
+  // Relations - ✅ FIXED: added back-relation
+  labResults    LabResult[] @relation("TechnicianResults")
 
   @@index([userId])
 }
@@ -177,7 +177,7 @@ model Appointment {
 }
 
 // ===========================================
-// 💰 INVOICES & BILLING (Enhanced)
+// 💰 INVOICES & BILLING (Enhanced) - ✅ FIXED
 // ===========================================
 
 enum InvoiceStatus {
@@ -199,7 +199,7 @@ enum PaymentMethod {
 
 model Invoice {
   id            String        @id @default(cuid())
-  invoiceNumber String        @unique @default(auto())
+  invoiceNumber String        @unique @default(cuid())  // ✅ FIXED: auto() → cuid()
   patientId     String
   patient       Patient       @relation(fields: [patientId], references: [id])
   appointmentId String?
@@ -238,7 +238,7 @@ model InvoiceItem {
 }
 
 // ===========================================
-// 🧪 LAB MANAGEMENT (Enhanced)
+// 🧪 LAB MANAGEMENT (Enhanced) - ✅ FIXED
 // ===========================================
 
 enum LabTestCategory {
@@ -297,15 +297,15 @@ model LabRequest {
   doctor        Doctor            @relation(fields: [doctorId], references: [id])
   tests         LabTest[]
   status        LabRequestStatus  @default(PENDING)
-  priority      String            @default("NORMAL") // NORMAL, URGENT, STAT
+  priority      String            @default("NORMAL")
   notes         String?
   requestedAt   DateTime          @default(now())
   completedAt   DateTime?
   collectedBy   String?
   verifiedBy    String?
 
-  // Relations
-  labResults    LabResult[]
+  // Relations - ✅ FIXED: added back-relation
+  labResults    LabResult[]       @relation("RequestResults")
 
   @@index([patientId])
   @@index([doctorId])
@@ -319,6 +319,7 @@ model LabResult {
   labTestId       String
   labTest         LabTest         @relation(fields: [labTestId], references: [id])
   requestId       String
+  request         LabRequest      @relation(fields: [requestId], references: [id], name: "RequestResults")  // ✅ FIXED
   value           String
   unit            String?
   referenceRange  String?
@@ -327,6 +328,7 @@ model LabResult {
   verifiedBy      String?
   verifiedAt      DateTime?
   technicianId    String?
+  technician      LabTechnician?  @relation(fields: [technicianId], references: [id], name: "TechnicianResults")  // ✅ FIXED
   notes           String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -351,7 +353,7 @@ model MedicalRecord {
   symptoms      String?
   treatment     String?
   prescription  String?
-  attachments   String? // JSON array of file URLs
+  attachments   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -360,7 +362,7 @@ model MedicalRecord {
 }
 
 // ===========================================
-// 🔐 AUDIT LOGGING (HIPAA Compliance)
+// 🔐 AUDIT LOGGING
 // ===========================================
 
 enum AuditAction {
