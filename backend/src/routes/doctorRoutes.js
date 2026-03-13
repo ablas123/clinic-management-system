@@ -5,6 +5,8 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
+// ✅ ثابت لتجنب مشكلة : في جميع استدعاءات Prisma
+const DATA_KEY = 'data';
 
 // ===========================================
 // GET ALL DOCTORS
@@ -47,7 +49,6 @@ router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, re
       prisma.doctor.count({ where })
     ]);
 
-    // ✅ استخدام ['data'] الآمن
     const responseData = {
       success: true,
       ['data']: {
@@ -105,7 +106,7 @@ router.get('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
 });
 
 // ===========================================
-// CREATE DOCTOR - ✅ نمط آمن
+// CREATE DOCTOR - ✅ استخدام DATA_KEY
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
@@ -118,31 +119,29 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ إنشاء المستخدم أولاً
-    const userConfig = {
-       {
-        email,
-        password: hashedPassword,
-        firstName,
-        lastName,
-        phone: phone || null,
-        role: 'DOCTOR',
-        status: 'ACTIVE'
-      }
+    // ✅ إنشاء المستخدم
+    const userPayload = {
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      phone: phone || null,
+      role: 'DOCTOR',
+      status: 'ACTIVE'
     };
+    const userConfig = { [DATA_KEY]: userPayload };
     const user = await prisma.user.create(userConfig);
 
     // ✅ إنشاء ملف الطبيب
-    const doctorConfig = {
-       {
-        userId: user.id,
-        specialty,
-        licenseNumber,
-        bio: bio || null,
-        consultationFee: consultationFee ? parseFloat(consultationFee) : 0,
-        maxPatientsPerDay: maxPatientsPerDay ? parseInt(maxPatientsPerDay) : 20
-      }
+    const doctorPayload = {
+      userId: user.id,
+      specialty,
+      licenseNumber,
+      bio: bio || null,
+      consultationFee: consultationFee ? parseFloat(consultationFee) : 0,
+      maxPatientsPerDay: maxPatientsPerDay ? parseInt(maxPatientsPerDay) : 20
     };
+    const doctorConfig = { [DATA_KEY]: doctorPayload };
     const doctor = await prisma.doctor.create(doctorConfig);
 
     const responseData = { success: true, message: 'Doctor created', ['data']: { doctor } };
@@ -153,7 +152,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ===========================================
-// UPDATE AVAILABILITY
+// UPDATE AVAILABILITY - ✅ استخدام DATA_KEY هنا أيضاً
 // ===========================================
 router.patch('/:id/availability', authenticate, async (req, res) => {
   try {
@@ -169,7 +168,9 @@ router.patch('/:id/availability', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    const updateConfig = { where: { id },  { isAvailable: isAvailable === true || isAvailable === 'true' } };
+    // ✅ استخدام DATA_KEY لتجنب مشكلة :
+    const updatePayload = { isAvailable: isAvailable === true || isAvailable === 'true' };
+    const updateConfig = { where: { id }, [DATA_KEY]: updatePayload };
     const doctor = await prisma.doctor.update(updateConfig);
 
     const responseData = { success: true, message: 'Availability updated', ['data']: { doctor } };
