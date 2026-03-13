@@ -33,6 +33,8 @@ router.get('/', async (req, res) => {
           date: true,
           reason: true,
           status: true,
+          patientId: true,
+          doctorId: true,
           patient: {
             select: {
               id: true,
@@ -75,7 +77,7 @@ router.get('/', async (req, res) => {
 });
 
 // ===========================================
-// CREATE APPOINTMENT - ✅ استخدام SCHEDULED بدلاً من PENDING
+// CREATE APPOINTMENT
 // ===========================================
 router.post('/', async (req, res) => {
   try {
@@ -97,7 +99,7 @@ router.post('/', async (req, res) => {
     }
 
     const appointment = await prisma.appointment.create({
-      data: {
+       {
         patientId: patientId,
         doctorId: doctorId,
         date: appointmentDate,
@@ -109,7 +111,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Appointment booked successfully', 
-      data: {
+       {
         appointment: appointment
       } 
     });
@@ -155,7 +157,7 @@ router.put('/:id', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Appointment updated', 
-      data: {
+       {
         appointment: appointment
       } 
     });
@@ -197,7 +199,7 @@ router.patch('/:id/status', async (req, res) => {
     
     const appointment = await prisma.appointment.update({ 
       where: { id: id }, 
-      data: { 
+       { 
         status: status 
       } 
     });
@@ -205,7 +207,7 @@ router.patch('/:id/status', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Status updated', 
-      data: {
+       {
         appointment: appointment
       } 
     });
