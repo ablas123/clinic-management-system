@@ -1,10 +1,12 @@
+// File: backend/src/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const { authenticate } = require('../../middleware/auth');
+// ✅ المسار الصحيح: ../middleware/auth (يصعد مستوى واحد فقط)
+const { authenticate } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -15,22 +17,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required' });
+      return res.status(400).json({ success: false, message: 'Email and password required' });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: email },
+      where: { email },
       include: { doctorProfile: true, labProfile: true }
     });
 
-    if (!user) {
+    if (!user || user.status !== 'ACTIVE') {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-
-    if (user.status !== 'ACTIVE') {
-      return res.status(403).json({ success: false, message: 'Account is not active' });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
@@ -38,53 +35,21 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
 
-    // ✅ CREATE SESSION: بناء الكائن في متغير أولاً
-    const sessionConfig = {
-      userId: user.id,
-      token: token,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
-    };
-    await prisma.session.create({ data: sessionConfig });
-
-    // ✅ UPDATE USER
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() }
-    });
+    const sessionConfig = { userId: user.id, token, expiresAt: new Date(Date.now() + 24*60*60*1000) };
+    await prisma.session.create({  sessionConfig });
+    await prisma.user.update({ where: { id: user.id },  { lastLogin: new Date() } });
 
     const userData = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      avatar: user.avatar,
-      doctorProfile: user.doctorProfile ? {
-        id: user.doctorProfile.id,
-        specialty: user.doctorProfile.specialty,
-        isAvailable: user.doctorProfile.isAvailable
-      } : null,
-      labProfile: user.labProfile ? {
-        id: user.labProfile.id,
-        specialization: user.labProfile.specialization
-      } : null
+      id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName,
+      role: user.role, avatar: user.avatar,
+      doctorProfile: user.doctorProfile, labProfile: user.labProfile
     };
 
-    const responseData = {
-      success: true,
-      message: 'Login successful',
-      data: { user: userData, token: token }
-    };
+    const responseData = { success: true, message: 'Login successful',  { user: userData, token } };
     res.json(responseData);
-
   } catch (e) {
-    console.error('Login error:', e);
     res.status(500).json({ success: false, message: e.message || 'Login failed' });
   }
 });
@@ -95,7 +60,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', authenticate, async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    await prisma.session.deleteMany({ where: { token: token } });
+    await prisma.session.deleteMany({ where: { token } });
     res.json({ success: true, message: 'Logout successful' });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -111,26 +76,14 @@ router.get('/me', authenticate, async (req, res) => {
       where: { id: req.user.userId },
       include: { doctorProfile: true, labProfile: true }
     });
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    
     const userData = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      phone: user.phone,
-      avatar: user.avatar,
-      status: user.status,
-      lastLogin: user.lastLogin,
-      doctorProfile: user.doctorProfile,
-      labProfile: user.labProfile
+      id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName,
+      role: user.role, phone: user.phone, avatar: user.avatar, status: user.status,
+      lastLogin: user.lastLogin, doctorProfile: user.doctorProfile, labProfile: user.labProfile
     };
-
-    const responseData = { success: true, data: { user: userData } };
+    const responseData = { success: true,  { user: userData } };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -142,12 +95,8 @@ router.get('/me', authenticate, async (req, res) => {
 // ===========================================
 router.post('/refresh', authenticate, async (req, res) => {
   try {
-    const token = jwt.sign(
-      { userId: req.user.userId, email: req.user.email, role: req.user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    const responseData = { success: true, data: { token: token } };
+    const token = jwt.sign({ userId: req.user.userId, email: req.user.email, role: req.user.role }, JWT_SECRET, { expiresIn: '24h' });
+    const responseData = { success: true,  { token } };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
