@@ -1,26 +1,25 @@
 // ===========================================
-// 👨‍⚕️ DOCTORS ROUTES - مع تسجيل كامل للطلب
+// 👨‍⚕️ DOCTORS ROUTES
 // ===========================================
 // File: backend/src/routes/doctorRoutes.js
 
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorize } = require('../middleware/auth');
+
+// ✅ تصحيح المسار: ../../middleware/auth
+const { authenticate, authorize } = require('../../middleware/auth');
 
 const prisma = new PrismaClient();
 
 // ===========================================
-// 📤 CREATE DOCTOR - مع تسجيل مفصّل
+// 📤 CREATE DOCTOR (Admin only)
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
-    // 🔍 تسجيل كل ما يصل من الفرونت إند
-    console.log('🔍 [DEBUG] POST /doctors received:');
-    console.log('🔍 [DEBUG] req.body:', JSON.stringify(req.body, null, 2));
-    console.log('🔍 [DEBUG] req.headers:', JSON.stringify(req.headers, null, 2));
+    // 🔍 تسجيل الطلب للتحقق
+    console.log('🔍 [DEBUG] POST /doctors body:', req.body);
 
-    // ✅ استخراج الحقول بكل الصيغ الممكنة
     const { 
       firstName, lastName, name,
       email, phone,
@@ -28,22 +27,16 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       licenseNumber, isAvailable 
     } = req.body;
 
-    // ✅ دعم كل الصيغ
+    // ✅ دعم كل الصيغ الممكنة
     const finalFirstName = firstName || (name ? name.split(' ')[0] : '');
     const finalLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : '');
     const finalSpecialization = specialization || specialty || '';
 
-    // 🔍 تسجيل الحقول المستخلصة
-    console.log('🔍 [DEBUG] Parsed fields:', {
-      finalFirstName, finalLastName, email, finalSpecialization
-    });
-
-    // ✅ التحقق (رسالة خطأ واضحة)
+    // ✅ التحقق من الحقول المطلوبة
     if (!finalFirstName || !finalLastName || !email || !finalSpecialization) {
-      console.error('❌ [VALIDATION FAILED] Missing required fields');
       return res.status(400).json({ 
         success: false, 
-        message: 'Required: firstName, lastName, email, specialization (or: name, email, specialty)' 
+        message: 'Required: firstName, lastName, email, specialization' 
       });
     }
 
@@ -56,7 +49,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       });
     }
 
-    // ✅ الإنشاء
+    // ✅ إنشاء الطبيب
     const doctor = await prisma.doctor.create({
       data: {
         firstName: finalFirstName,
@@ -77,7 +70,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     });
 
   } catch (e) {
-    console.error('❌ [ERROR] Create doctor failed:', e);
+    console.error('❌ Create doctor error:', e);
     res.status(500).json({ 
       success: false, 
       message: e.message || 'Failed to create doctor' 
@@ -86,7 +79,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ===========================================
-// 📥 GET ALL DOCTORS
+// 📥 GET ALL DOCTORS (Public)
 // ===========================================
 router.get('/', async (req, res) => {
   try {
@@ -140,7 +133,7 @@ router.get('/', async (req, res) => {
 });
 
 // ===========================================
-// 📥 GET DOCTOR BY ID
+// 📥 GET DOCTOR BY ID (Public)
 // ===========================================
 router.get('/:id', async (req, res) => {
   try {
@@ -163,7 +156,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // ===========================================
-// ✏️ UPDATE DOCTOR
+// ✏️ UPDATE DOCTOR (Admin only)
 // ===========================================
 router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
@@ -205,7 +198,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ===========================================
-// 🗑️ DELETE DOCTOR
+// 🗑️ DELETE DOCTOR (Admin only)
 // ===========================================
 router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
@@ -222,7 +215,7 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ===========================================
-// 🔄 TOGGLE AVAILABILITY
+// 🔄 TOGGLE AVAILABILITY (Admin only)
 // ===========================================
 router.patch('/:id/availability', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
@@ -241,7 +234,7 @@ router.patch('/:id/availability', authenticate, authorize('ADMIN'), async (req, 
 });
 
 // ===========================================
-// 📊 STATS
+// 📊 STATS (Admin only)
 // ===========================================
 router.get('/stats/summary', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
