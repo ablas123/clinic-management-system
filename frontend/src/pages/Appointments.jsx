@@ -43,7 +43,7 @@ const Appointments = () => {
       if (docRes.data?.success) setDoctors(docRes.data.data?.doctors || []);
       if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
     } catch (err) {
-      console.error('❌ Error fetching data:', err);
+      console.error('❌ Error fetching ', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
       if (err.response?.status === 401) {
         logout();
