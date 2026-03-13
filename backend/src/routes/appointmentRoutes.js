@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-       {
+      data: {
         appointments: appointments,
         pagination: {
           total: total,
@@ -76,7 +76,7 @@ router.get('/', async (req, res) => {
 });
 
 // ===========================================
-// CREATE APPOINTMENT - بدون قيود نفس اليوم
+// CREATE APPOINTMENT
 // ===========================================
 router.post('/', async (req, res) => {
   try {
@@ -89,11 +89,8 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ✅ نسمح بحجوزات متعددة في نفس اليوم لنفس المريض/الطبيب
-    // (يمكن إضافة تحقق من تعارض الوقت الدقيق إذا أردت لاحقاً)
-
     const appointment = await prisma.appointment.create({
-       {
+      data: {
         patientId: patientId,
         doctorId: doctorId,
         date: date,
@@ -107,7 +104,9 @@ router.post('/', async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Appointment booked successfully', 
-       { appointment } 
+      data: {
+        appointment: appointment
+      } 
     });
   } catch (e) {
     console.error('Create appointment error:', e);
@@ -133,19 +132,21 @@ router.put('/:id', async (req, res) => {
 
     const appointment = await prisma.appointment.update({
       where: { id: id },
-       {
-        date: date ?? existing.date,
-        time: time ?? existing.time,
-        type: type ?? existing.type,
+      data: {
+        date: date !== undefined ? date : existing.date,
+        time: time !== undefined ? time : existing.time,
+        type: type !== undefined ? type : existing.type,
         notes: notes !== undefined ? notes : existing.notes,
-        status: status ?? existing.status
+        status: status !== undefined ? status : existing.status
       }
     });
     
     res.json({ 
       success: true, 
       message: 'Appointment updated', 
-       { appointment } 
+      data: {
+        appointment: appointment
+      } 
     });
   } catch (e) {
     console.error('Update appointment error:', e);
@@ -185,13 +186,17 @@ router.patch('/:id/status', async (req, res) => {
     
     const appointment = await prisma.appointment.update({ 
       where: { id: id }, 
-       { status: status } 
+      data: { 
+        status: status 
+      } 
     });
     
     res.json({ 
       success: true, 
       message: 'Status updated', 
-       { appointment } 
+      data: {
+        appointment: appointment
+      } 
     });
   } catch (e) {
     console.error('Update status error:', e);
