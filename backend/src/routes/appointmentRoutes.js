@@ -75,7 +75,7 @@ router.get('/', async (req, res) => {
 });
 
 // ===========================================
-// CREATE APPOINTMENT
+// CREATE APPOINTMENT - ✅ تحويل التاريخ لـ ISO-8601
 // ===========================================
 router.post('/', async (req, res) => {
   try {
@@ -88,11 +88,20 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // ✅ تحويل التاريخ من "2026-03-13" إلى كائن تاريخ صالح لـ Prisma
+    const appointmentDate = new Date(date);
+    if (isNaN(appointmentDate.getTime())) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid date format' 
+      });
+    }
+
     const appointment = await prisma.appointment.create({
       data: {
         patientId: patientId,
         doctorId: doctorId,
-        date: date,
+        date: appointmentDate,  // ✅ نرسل كائن تاريخ، ليس نص
         reason: reason || null,
         status: status || 'PENDING'
       }
@@ -127,13 +136,22 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Appointment not found' });
     }
 
+    // ✅ تحويل التاريخ إذا وُجد
+    const updateData = {
+      reason: reason !== undefined ? reason : existing.reason,
+      status: status !== undefined ? status : existing.status
+    };
+    
+    if (date !== undefined && date !== null) {
+      const appointmentDate = new Date(date);
+      if (!isNaN(appointmentDate.getTime())) {
+        updateData.date = appointmentDate;
+      }
+    }
+
     const appointment = await prisma.appointment.update({
       where: { id: id },
-      data: {
-        date: date !== undefined ? date : existing.date,
-        reason: reason !== undefined ? reason : existing.reason,
-        status: status !== undefined ? status : existing.status
-      }
+      data: updateData
     });
     
     res.json({ 
