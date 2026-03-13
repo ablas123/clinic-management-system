@@ -1,7 +1,8 @@
 // ===========================================
-// 👨‍⚕️ DOCTORS ROUTES - FINAL FIXED VERSION
+// 👨‍⚕️ DOCTORS ROUTES - مطابق لـ Prisma Schema
 // ===========================================
 // File: backend/src/routes/doctorRoutes.js
+// الحقول الصحيحة: name, specialty, bio, avatar
 
 const express = require('express');
 const router = express.Router();
@@ -17,26 +18,32 @@ router.post('/', async (req, res) => {
     console.log('🔍 [DEBUG] POST /doctors body:', JSON.stringify(req.body));
 
     const { 
-      firstName, lastName, name,
+      // ✅ دعم الصيغة القديمة (من الفرونت إند)
+      firstName, lastName,
+      // ✅ والصيغة الجديدة (من الـ Schema)
+      name,
       email, phone,
       specialization, specialty,
-      licenseNumber, isAvailable 
+      licenseNumber, bio,
+      avatar, isAvailable 
     } = req.body;
 
-    // ✅ دعم كل الصيغ
-    const finalFirstName = firstName || (name ? name.split(' ')[0] : '');
-    const finalLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : '');
-    const finalSpecialization = specialization || specialty || '';
+    // ✅ دمج الاسم إذا أرسل منفصلاً
+    const finalName = name || (firstName && lastName ? `${firstName} ${lastName}` : '');
+    // ✅ توحيد اسم التخصص
+    const finalSpecialty = specialty || specialization || '';
+    // ✅ توحيد السيرة الذاتية
+    const finalBio = bio || licenseNumber || '';
 
-    // ✅ التحقق
-    if (!finalFirstName || !finalLastName || !email || !finalSpecialization) {
+    // ✅ التحقق من الحقول المطلوبة (بأسماء الـ Schema)
+    if (!finalName || !email || !finalSpecialty) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Required: firstName, lastName, email, specialization' 
+        message: 'Name, email, and specialty are required' 
       });
     }
 
-    // ✅ التحقق من البريد
+    // ✅ التحقق من البريد المكرر
     const existing = await prisma.doctor.findUnique({ where: { email } });
     if (existing) {
       return res.status(400).json({ 
@@ -45,15 +52,15 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ✅ الإنشاء - ✅ تصحيح: إضافة data:
+    // ✅ الإنشاء - باستخدام أسماء الحقول الصحيحة في الـ Schema
     const doctor = await prisma.doctor.create({
-      data: {  // ← هذا كان ناقصاً!
-        firstName: finalFirstName,
-        lastName: finalLastName,
+       {
+        name: finalName,
         email,
         phone: phone || null,
-        specialization: finalSpecialization,
-        licenseNumber: licenseNumber || null,
+        specialty: finalSpecialty,
+        bio: finalBio || null,
+        avatar: avatar || null,
         isAvailable: isAvailable ?? true
       }
     });
@@ -62,7 +69,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Doctor created successfully', 
-      data: { doctor } 
+       { doctor } 
     });
 
   } catch (e) {
@@ -84,10 +91,9 @@ router.get('/', async (req, res) => {
 
     if (search) {
       where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
-        { specialization: { contains: search, mode: 'insensitive' } },
+        { specialty: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } }
       ];
     }
@@ -102,9 +108,17 @@ router.get('/', async (req, res) => {
         take: parseInt(limit),
         orderBy: { createdAt: 'desc' },
         select: {
-          id: true, firstName: true, lastName: true, email: true,
-          phone: true, specialization: true, licenseNumber: true,
-          isAvailable: true, createdAt: true, updatedAt: true
+          // ✅ أسماء الحقول الصحيحة حسب الـ Schema
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          specialty: true,
+          bio: true,
+          avatar: true,
+          isAvailable: true,
+          createdAt: true,
+          updatedAt: true
         }
       }),
       prisma.doctor.count({ where })
@@ -112,7 +126,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-      data: {
+       {
         doctors,
         pagination: {
           total,
@@ -136,15 +150,22 @@ router.get('/:id', async (req, res) => {
     const doctor = await prisma.doctor.findUnique({
       where: { id: req.params.id },
       select: {
-        id: true, firstName: true, lastName: true, email: true,
-        phone: true, specialization: true, licenseNumber: true,
-        isAvailable: true, createdAt: true, updatedAt: true
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        specialty: true,
+        bio: true,
+        avatar: true,
+        isAvailable: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
     if (!doctor) {
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
-    res.json({ success: true, data: { doctor } });
+    res.json({ success: true,  { doctor } });
   } catch (e) {
     console.error('❌ Get doctor error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to fetch doctor' });
@@ -157,11 +178,11 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, name, email, phone, specialization, specialty, licenseNumber, isAvailable } = req.body;
+    const { firstName, lastName, name, email, phone, specialization, specialty, licenseNumber, bio, avatar, isAvailable } = req.body;
     
-    const finalFirstName = firstName || (name ? name.split(' ')[0] : undefined);
-    const finalLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : undefined);
-    const finalSpecialization = specialization || specialty || undefined;
+    const finalName = name || (firstName && lastName ? `${firstName} ${lastName}` : undefined);
+    const finalSpecialty = specialty || specialization || undefined;
+    const finalBio = bio || licenseNumber || undefined;
 
     const existing = await prisma.doctor.findUnique({ where: { id } });
     if (!existing) {
@@ -176,17 +197,17 @@ router.put('/:id', async (req, res) => {
 
     const doctor = await prisma.doctor.update({
       where: { id },
-      data: {  // ← ✅ data: هنا أيضاً
-        firstName: finalFirstName ?? existing.firstName,
-        lastName: finalLastName ?? existing.lastName,
+       {
+        name: finalName ?? existing.name,
         email: email ?? existing.email,
         phone: phone ?? existing.phone,
-        specialization: finalSpecialization ?? existing.specialization,
-        licenseNumber: licenseNumber ?? existing.licenseNumber,
+        specialty: finalSpecialty ?? existing.specialty,
+        bio: finalBio ?? existing.bio,
+        avatar: avatar ?? existing.avatar,
         isAvailable: isAvailable ?? existing.isAvailable
       }
     });
-    res.json({ success: true, message: 'Doctor updated', data: { doctor } });
+    res.json({ success: true, message: 'Doctor updated',  { doctor } });
   } catch (e) {
     console.error('❌ Update doctor error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update doctor' });
@@ -223,9 +244,9 @@ router.patch('/:id/availability', async (req, res) => {
     }
     const doctor = await prisma.doctor.update({ 
       where: { id }, 
-      data: { isAvailable }  // ← ✅ data: هنا أيضاً
+       { isAvailable } 
     });
-    res.json({ success: true, message: 'Availability updated', data: { doctor } });
+    res.json({ success: true, message: 'Availability updated',  { doctor } });
   } catch (e) {
     console.error('❌ Update availability error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update' });
@@ -240,15 +261,15 @@ router.get('/stats/summary', async (req, res) => {
     const [total, available, bySpecialty] = await Promise.all([
       prisma.doctor.count(),
       prisma.doctor.count({ where: { isAvailable: true } }),
-      prisma.doctor.groupBy({ by: ['specialization'], _count: { specialization: true } })
+      prisma.doctor.groupBy({ by: ['specialty'], _count: { specialty: true } })
     ]);
     res.json({
       success: true,
-      data: {
+       {
         total,
         available,
         unavailable: total - available,
-        bySpecialty: bySpecialty.map(s => ({ specialization: s.specialization, count: s._count.specialization }))
+        bySpecialty: bySpecialty.map(s => ({ specialty: s.specialty, count: s._count.specialty }))
       }
     });
   } catch (e) {
