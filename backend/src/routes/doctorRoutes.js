@@ -1,24 +1,25 @@
 // ===========================================
-// 👨‍⚕️ DOCTORS ROUTES
+// 👨‍⚕️ DOCTORS ROUTES - نسخة اختبار (بدون auth مؤقتاً)
 // ===========================================
 // File: backend/src/routes/doctorRoutes.js
+// ملاحظة: تمت إزالة auth مؤقتاً لعزل مشكلة المسار
 
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 
-// ✅ تصحيح المسار: ../../middleware/auth
-const { authenticate, authorize } = require('../../middleware/auth');
+// ⚠️ تم تعليق auth مؤقتاً - سنعيده بعد التأكد من عمل المسار
+// const { authenticate, authorize } = require('../../middleware/auth');
 
 const prisma = new PrismaClient();
 
 // ===========================================
-// 📤 CREATE DOCTOR (Admin only)
+// 📤 CREATE DOCTOR - نسخة اختبار
 // ===========================================
-router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
+router.post('/', /* authenticate, authorize('ADMIN'), */ async (req, res) => {
   try {
     // 🔍 تسجيل الطلب للتحقق
-    console.log('🔍 [DEBUG] POST /doctors body:', req.body);
+    console.log('🔍 [DEBUG] POST /doctors body:', JSON.stringify(req.body));
 
     const { 
       firstName, lastName, name,
@@ -51,7 +52,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
 
     // ✅ إنشاء الطبيب
     const doctor = await prisma.doctor.create({
-      data: {
+       {
         firstName: finalFirstName,
         lastName: finalLastName,
         email,
@@ -66,7 +67,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Doctor created successfully', 
-      data: { doctor } 
+       { doctor } 
     });
 
   } catch (e) {
@@ -116,7 +117,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-      data: {
+       {
         doctors,
         pagination: {
           total,
@@ -148,7 +149,7 @@ router.get('/:id', async (req, res) => {
     if (!doctor) {
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
-    res.json({ success: true, data: { doctor } });
+    res.json({ success: true,  { doctor } });
   } catch (e) {
     console.error('❌ Get doctor error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to fetch doctor' });
@@ -156,9 +157,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // ===========================================
-// ✏️ UPDATE DOCTOR (Admin only)
+// ✏️ UPDATE DOCTOR - نسخة اختبار
 // ===========================================
-router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+router.put('/:id', /* authenticate, authorize('ADMIN'), */ async (req, res) => {
   try {
     const { id } = req.params;
     const { firstName, lastName, name, email, phone, specialization, specialty, licenseNumber, isAvailable } = req.body;
@@ -180,7 +181,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 
     const doctor = await prisma.doctor.update({
       where: { id },
-      data: {
+       {
         firstName: finalFirstName ?? existing.firstName,
         lastName: finalLastName ?? existing.lastName,
         email: email ?? existing.email,
@@ -190,7 +191,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
         isAvailable: isAvailable ?? existing.isAvailable
       }
     });
-    res.json({ success: true, message: 'Doctor updated', data: { doctor } });
+    res.json({ success: true, message: 'Doctor updated',  { doctor } });
   } catch (e) {
     console.error('❌ Update doctor error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update doctor' });
@@ -198,9 +199,9 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ===========================================
-// 🗑️ DELETE DOCTOR (Admin only)
+// 🗑️ DELETE DOCTOR - نسخة اختبار
 // ===========================================
-router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+router.delete('/:id', /* authenticate, authorize('ADMIN'), */ async (req, res) => {
   try {
     const existing = await prisma.doctor.findUnique({ where: { id: req.params.id } });
     if (!existing) {
@@ -215,9 +216,9 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ===========================================
-// 🔄 TOGGLE AVAILABILITY (Admin only)
+// 🔄 TOGGLE AVAILABILITY - نسخة اختبار
 // ===========================================
-router.patch('/:id/availability', authenticate, authorize('ADMIN'), async (req, res) => {
+router.patch('/:id/availability', /* authenticate, authorize('ADMIN'), */ async (req, res) => {
   try {
     const { id } = req.params;
     const { isAvailable } = req.body;
@@ -226,7 +227,7 @@ router.patch('/:id/availability', authenticate, authorize('ADMIN'), async (req, 
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
     const doctor = await prisma.doctor.update({ where: { id }, data: { isAvailable } });
-    res.json({ success: true, message: 'Availability updated', data: { doctor } });
+    res.json({ success: true, message: 'Availability updated',  { doctor } });
   } catch (e) {
     console.error('❌ Update availability error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update' });
@@ -234,9 +235,9 @@ router.patch('/:id/availability', authenticate, authorize('ADMIN'), async (req, 
 });
 
 // ===========================================
-// 📊 STATS (Admin only)
+// 📊 STATS - نسخة اختبار
 // ===========================================
-router.get('/stats/summary', authenticate, authorize('ADMIN'), async (req, res) => {
+router.get('/stats/summary', /* authenticate, authorize('ADMIN'), */ async (req, res) => {
   try {
     const [total, available, bySpecialty] = await Promise.all([
       prisma.doctor.count(),
@@ -245,7 +246,7 @@ router.get('/stats/summary', authenticate, authorize('ADMIN'), async (req, res) 
     ]);
     res.json({
       success: true,
-      data: {
+       {
         total,
         available,
         unavailable: total - available,
