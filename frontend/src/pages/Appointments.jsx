@@ -43,7 +43,7 @@ const Appointments = () => {
       if (docRes.data?.success) setDoctors(docRes.data.data?.doctors || []);
       if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
     } catch (err) {
-      console.error('❌ Error fetching ', err);
+      console.error('❌ Error fetching data:', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
       if (err.response?.status === 401) {
         logout();
@@ -116,9 +116,10 @@ const Appointments = () => {
     }
   };
 
+  // 🔍 تصفية البحث
   const filteredAppointments = appointments.filter(apt =>
-    apt.patient?.firstName?.toLowerCase().includes(search.toLowerCase()) ||
-    apt.doctor?.firstName?.toLowerCase().includes(search.toLowerCase())
+    apt.patient?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    apt.doctor?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -159,11 +160,11 @@ const Appointments = () => {
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <select value={formData.patientId} onChange={(e) => setFormData({...formData, patientId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
                 <option value="">اختر المريض</option>
-                {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
+                {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               <select value={formData.doctorId} onChange={(e) => setFormData({...formData, doctorId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
                 <option value="">اختر الطبيب</option>
-                {doctors.map(d => <option key={d.id} value={d.id}>{d.firstName} {d.lastName} - {d.specialization}</option>)}
+                {doctors.map(d => <option key={d.id} value={d.id}>{d.name} - {d.specialty}</option>)}
               </select>
               <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
               <input type="time" value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
@@ -214,8 +215,9 @@ const Appointments = () => {
                   {filteredAppointments.map((apt, index) => (
                     <tr key={apt.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{apt.patient?.firstName} {apt.patient?.lastName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{apt.doctor?.firstName} {apt.doctor?.lastName}</td>
+                      {/* ✅ عرض الاسم الصحيح */}
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{apt.patient?.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{apt.doctor?.name}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4" />
@@ -251,4 +253,5 @@ const Appointments = () => {
   );
 };
 
+// ✅ هذا السطر ضروري جداً!
 export default Appointments;
