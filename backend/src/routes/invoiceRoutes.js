@@ -22,19 +22,20 @@ router.get('/', async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json({ success: true,  { invoices: invoices } });
+    const responseData = { success: true, data: { invoices: invoices } };
+    res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
-// CREATE - ✅ مع include لرجوع بيانات المريض
+// CREATE - مع include لرجوع بيانات المريض
 router.post('/', async (req, res) => {
   try {
     const { patientId, amount, description } = req.body;
     
     const invoice = await prisma.invoice.create({
-       {
+      data: {
         patientId: patientId,
         amount: parseFloat(amount),
         description: description,
@@ -51,7 +52,8 @@ router.post('/', async (req, res) => {
       }
     });
     
-    res.status(201).json({ success: true,  { invoice: invoice } });
+    const responseData = { success: true, data: { invoice: invoice } };
+    res.status(201).json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -65,14 +67,15 @@ router.put('/:id', async (req, res) => {
     
     const invoice = await prisma.invoice.update({
       where: { id: id },
-       {
+      data: {
         amount: amount ? parseFloat(amount) : undefined,
         description: description,
         status: status
       }
     });
     
-    res.json({ success: true,  { invoice: invoice } });
+    const responseData = { success: true, data: { invoice: invoice } };
+    res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -96,10 +99,11 @@ router.patch('/:id/status', async (req, res) => {
     
     const invoice = await prisma.invoice.update({
       where: { id: id },
-       { status: status }
+      data: { status: status }
     });
     
-    res.json({ success: true,  { invoice: invoice } });
+    const responseData = { success: true, data: { invoice: invoice } };
+    res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
