@@ -1,63 +1,202 @@
-// ===========================================
-// 📅 APPOINTMENT ROUTES
-// ===========================================
-
 const express = require('express');
 const router = express.Router();
-const {
-  getAllAppointments,
-  getAppointmentById,
-  createAppointment,
-  updateAppointment,
-  cancelAppointment,
-  completeAppointment,
-  getAppointmentStats,
-  getAppointmentsByDoctor,
-  getAppointmentsByPatient
-} = require('../controllers/appointmentController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 // ===========================================
-// 🔒 ALL ROUTES PROTECTED (Authentication Required)
+// GET ALL APPOINTMENTS
 // ===========================================
+router.get('/', async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, status, date } = req.query;
+    const where = {};
 
-// Apply protect middleware to all routes in this file
-router.use(protect);
+    if (search) {
+      where.OR = [
+        { patient: { firstName: { contains: search, mode: 'insensitive' } } },
+        { patient: { lastName: { contains: search, mode: 'insensitive' } } },
+        { doctor: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+    if (status) where.status = status;
+    if (date) where.date = date;
+
+    const [appointments, total] = await Promise.all([
+      prisma.appointment.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          date: true,
+          time: true,
+          type: true,
+          status: true,
+          notes: true,
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true
+            }
+          },
+          doctor: {
+            select: {
+              id: true,
+              name: true,
+              specialty: true
+            }
+          },
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.appointment.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+       {
+        appointments: appointments,
+        pagination: {
+          total: total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Get appointments error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to fetch appointments' });
+  }
+});
 
 // ===========================================
-// 📅 APPOINTMENT ENDPOINTS
+// CREATE APPOINTMENT - بدون قيود نفس اليوم
 // ===========================================
+router.post('/', async (req, res) => {
+  try {
+    const { patientId, doctorId, date, time, type, notes } = req.body;
 
-// GET /api/appointments - Get all appointments (with filters)
-// Query params: ?page=1&limit=10&status=SCHEDULED&doctorId=xxx&patientId=xxx
-router.get('/', getAllAppointments);
+    if (!patientId || !doctorId || !date || !time) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Patient, doctor, date, and time are required' 
+      });
+    }
 
-// GET /api/appointments/stats - Get appointment statistics (Admin only)
-router.get('/stats', authorize('ADMIN'), getAppointmentStats);
+    // ✅ نسمح بحجوزات متعددة في نفس اليوم لنفس المريض/الطبيب
+    // (يمكن إضافة تحقق من تعارض الوقت الدقيق إذا أردت لاحقاً)
 
-// GET /api/appointments/:id - Get single appointment by ID
-router.get('/:id', getAppointmentById);
+    const appointment = await prisma.appointment.create({
+       {
+        patientId: patientId,
+        doctorId: doctorId,
+        date: date,
+        time: time,
+        type: type || 'CHECKUP',
+        notes: notes || null,
+        status: 'PENDING'
+      }
+    });
 
-// POST /api/appointments - Create new appointment (Admin, Doctor, Staff)
-router.post('/', authorize('ADMIN', 'DOCTOR', 'STAFF'), createAppointment);
-
-// PUT /api/appointments/:id - Update appointment (Admin, Doctor)
-router.put('/:id', authorize('ADMIN', 'DOCTOR'), updateAppointment);
-
-// PATCH /api/appointments/:id/cancel - Cancel appointment (Admin, Doctor, Staff)
-router.patch('/:id/cancel', authorize('ADMIN', 'DOCTOR', 'STAFF'), cancelAppointment);
-
-// PATCH /api/appointments/:id/complete - Complete appointment & create medical record (Doctor only)
-router.patch('/:id/complete', authorize('DOCTOR'), completeAppointment);
-
-// GET /api/appointments/doctor/:doctorId - Get appointments by doctor
-router.get('/doctor/:doctorId', authorize('ADMIN', 'DOCTOR'), getAppointmentsByDoctor);
-
-// GET /api/appointments/patient/:patientId - Get appointments by patient
-router.get('/patient/:patientId', authorize('ADMIN', 'DOCTOR', 'STAFF'), getAppointmentsByPatient);
+    res.status(201).json({ 
+      success: true, 
+      message: 'Appointment booked successfully', 
+       { appointment } 
+    });
+  } catch (e) {
+    console.error('Create appointment error:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: e.message || 'Failed to book appointment' 
+    });
+  }
+});
 
 // ===========================================
-// 📤 EXPORT ROUTER
+// UPDATE APPOINTMENT
 // ===========================================
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, time, type, notes, status } = req.body;
+
+    const existing = await prisma.appointment.findUnique({ where: { id: id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    const appointment = await prisma.appointment.update({
+      where: { id: id },
+       {
+        date: date ?? existing.date,
+        time: time ?? existing.time,
+        type: type ?? existing.type,
+        notes: notes !== undefined ? notes : existing.notes,
+        status: status ?? existing.status
+      }
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Appointment updated', 
+       { appointment } 
+    });
+  } catch (e) {
+    console.error('Update appointment error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update appointment' });
+  }
+});
+
+// ===========================================
+// DELETE APPOINTMENT
+// ===========================================
+router.delete('/:id', async (req, res) => {
+  try {
+    const existing = await prisma.appointment.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+    await prisma.appointment.delete({ where: { id: req.params.id } });
+    res.json({ success: true, message: 'Appointment cancelled' });
+  } catch (e) {
+    console.error('Delete appointment error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to cancel appointment' });
+  }
+});
+
+// ===========================================
+// UPDATE APPOINTMENT STATUS
+// ===========================================
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    const existing = await prisma.appointment.findUnique({ where: { id: id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+    
+    const appointment = await prisma.appointment.update({ 
+      where: { id: id }, 
+       { status: status } 
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Status updated', 
+       { appointment } 
+    });
+  } catch (e) {
+    console.error('Update status error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update status' });
+  }
+});
 
 module.exports = router;
