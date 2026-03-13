@@ -1,44 +1,74 @@
+// File: backend/src/routes/invoiceRoutes.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
+const DATA_KEY = 'data';
 
-// GET ALL
-router.get('/', authenticate, async (req, res) => {
+// ===========================================
+// GET ALL INVOICES
+// ===========================================
+router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST', 'DOCTOR'), async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, status } = req.query;
+    const { page = 1, limit = 10, search, status, patientId } = req.query;
     const where = {};
+
     if (search) {
-      where.OR = [{ description: { contains: search, mode: 'insensitive' } }];
+      where.OR = [
+        { description: { contains: search, mode: 'insensitive' } },
+        { patient: { firstName: { contains: search, mode: 'insensitive' } } },
+        { patient: { lastName: { contains: search, mode: 'insensitive' } } }
+      ];
     }
     if (status) where.status = status;
+    if (patientId) where.patientId = patientId;
 
-    const findConfig = {
-      where: where,
-      skip: (parseInt(page) - 1) * parseInt(limit),
-      take: parseInt(limit),
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true, amount: true, description: true, status: true,
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        createdAt: true, updatedAt: true
+    // If DOCTOR, only show invoices for their patients
+    if (req.user.role === 'DOCTOR') {
+      const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
+      if (doctor) {
+        const appointments = await prisma.appointment.findMany({
+          where: { doctorId: doctor.id },
+          select: { patientId: true }
+        });
+        where.patientId = { in: appointments.map(a => a.patientId) };
       }
-    };
-    const invoices = await prisma.invoice.findMany(findConfig);
-    const countConfig = { where: where };
-    const total = await prisma.invoice.count(countConfig);
+    }
+
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
+          appointment: { 
+            select: { 
+              id: true, 
+              date: true, 
+              doctor: { 
+                include: { user: { select: { firstName: true, lastName: true } } } 
+              } 
+            } 
+          },
+          items: true
+        }
+      }),
+      prisma.invoice.count({ where })
+    ]);
 
     const responseData = {
       success: true,
-      data: {
-        invoices: invoices,
+      ['data']: {
+        invoices,
         pagination: {
-          total: total,
+          total,
           page: parseInt(page),
           limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit))
+          pages: Math.ceil(total / limit)
         }
       }
     };
@@ -48,61 +78,109 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// CREATE
+// ===========================================
+// CREATE INVOICE - ✅ مع عناصر الفاتورة
+// ===========================================
 router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
-    const { patientId, amount, description, status } = req.body;
-    if (!patientId || !amount || !description) {
-      return res.status(400).json({ success: false, message: 'Patient ID, amount, and description are required' });
+    const { patientId, appointmentId, totalAmount, description, status, items } = req.body;
+
+    if (!patientId || !totalAmount) {
+      return res.status(400).json({ success: false, message: 'Patient ID and amount are required' });
     }
 
-    const createConfig = {
-      data: {
-        patientId: patientId,
-        amount: parseFloat(amount),
-        description: description,
-        status: status || 'PENDING'
-      },
-      include: { patient: { select: { id: true, firstName: true, lastName: true } } }
+    // ✅ 1. إنشاء الفاتورة الرئيسية
+    const invoicePayload = {
+      patientId,
+      appointmentId: appointmentId || null,
+      totalAmount: parseFloat(totalAmount),
+      paidAmount: 0,
+      discount: 0,
+      description: description || 'Service charge',
+      status: status || 'PENDING',
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     };
-    const invoice = await prisma.invoice.create(createConfig);
+    const invoiceConfig = { [DATA_KEY]: invoicePayload };
+    const invoice = await prisma.invoice.create(invoiceConfig);
 
-    const responseData = { success: true, message: 'Invoice created', data: { invoice: invoice } };
+    // ✅ 2. إضافة عناصر الفاتورة إذا وُجدت
+    if (items && Array.isArray(items) && items.length > 0) {
+      const itemPayloads = items.map(item => ({
+        invoiceId: invoice.id,
+        description: item.description,
+        quantity: parseInt(item.quantity) || 1,
+        unitPrice: parseFloat(item.unitPrice),
+        total: parseFloat(item.unitPrice) * (parseInt(item.quantity) || 1),
+        type: item.type || 'SERVICE'
+      }));
+      
+      await prisma.invoiceItem.createMany({
+        [DATA_KEY]: { data: itemPayloads }
+      });
+    }
+
+    const responseData = { 
+      success: true, 
+      message: 'Invoice created', 
+      ['data']: { invoice } 
+    };
     res.status(201).json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
-// UPDATE STATUS
-router.patch('/:id/status', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
+// ===========================================
+// UPDATE PAYMENT STATUS - ✅ مع تسجيل وقت الدفع
+// ===========================================
+router.patch('/:id/payment', authenticate, authorize('RECEPTIONIST', 'ADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, paidAmount, paymentMethod } = req.body;
 
-    const updateConfig = {
-      where: { id: id },
-      data: { status: status }
+    const existing = await prisma.invoice.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    const updatePayload = {
+      status: status || existing.status,
+      paidAmount: paidAmount !== undefined ? parseFloat(paidAmount) : existing.paidAmount,
+      paymentMethod: paymentMethod || existing.paymentMethod,
+      paidAt: status === 'PAID' ? new Date() : existing.paidAt
     };
+    const updateConfig = { where: { id }, [DATA_KEY]: updatePayload };
     const invoice = await prisma.invoice.update(updateConfig);
 
-    const responseData = { success: true, message: 'Status updated', data: { invoice: invoice } };
+    // ✅ إذا دُفعت الفاتورة كاملة، تحديث موعد مرتبط إن وُجد
+    if (status === 'PAID' && invoice.paidAmount >= invoice.totalAmount && invoice.appointmentId) {
+      await prisma.appointment.update({
+        where: { id: invoice.appointmentId },
+        [DATA_KEY]: { status: 'COMPLETED' }
+      });
+    }
+
+    const responseData = { 
+      success: true, 
+      message: 'Payment updated', 
+      ['data']: { invoice } 
+    };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
-// DELETE
+// ===========================================
+// DELETE INVOICE
+// ===========================================
 router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
-    const existingConfig = { where: { id: req.params.id } };
-    const existing = await prisma.invoice.findUnique(existingConfig);
-    if (!existing) return res.status(404).json({ success: false, message: 'Invoice not found' });
-
-    const deleteConfig = { where: { id: req.params.id } };
-    await prisma.invoice.delete(deleteConfig);
-
+    const existing = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    await prisma.invoice.delete({ where: { id: req.params.id } });
     res.json({ success: true, message: 'Invoice deleted' });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
