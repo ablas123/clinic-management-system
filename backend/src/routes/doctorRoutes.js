@@ -1,8 +1,8 @@
 // ===========================================
-// 👨‍⚕️ DOCTORS ROUTES - مطابق لـ Prisma Schema
+// 👨‍⚕️ DOCTORS ROUTES - FINAL CORRECTED VERSION
 // ===========================================
 // File: backend/src/routes/doctorRoutes.js
-// الحقول الصحيحة: name, specialty, bio, avatar
+// ✅ جميع استعلامات Prisma تحتوي على data:
 
 const express = require('express');
 const router = express.Router();
@@ -18,24 +18,19 @@ router.post('/', async (req, res) => {
     console.log('🔍 [DEBUG] POST /doctors body:', JSON.stringify(req.body));
 
     const { 
-      // ✅ دعم الصيغة القديمة (من الفرونت إند)
-      firstName, lastName,
-      // ✅ والصيغة الجديدة (من الـ Schema)
-      name,
+      firstName, lastName, name,
       email, phone,
       specialization, specialty,
       licenseNumber, bio,
       avatar, isAvailable 
     } = req.body;
 
-    // ✅ دمج الاسم إذا أرسل منفصلاً
+    // ✅ دعم كل الصيغ
     const finalName = name || (firstName && lastName ? `${firstName} ${lastName}` : '');
-    // ✅ توحيد اسم التخصص
     const finalSpecialty = specialty || specialization || '';
-    // ✅ توحيد السيرة الذاتية
     const finalBio = bio || licenseNumber || '';
 
-    // ✅ التحقق من الحقول المطلوبة (بأسماء الـ Schema)
+    // ✅ التحقق
     if (!finalName || !email || !finalSpecialty) {
       return res.status(400).json({ 
         success: false, 
@@ -43,7 +38,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ✅ التحقق من البريد المكرر
+    // ✅ التحقق من البريد
     const existing = await prisma.doctor.findUnique({ where: { email } });
     if (existing) {
       return res.status(400).json({ 
@@ -52,9 +47,9 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ✅ الإنشاء - باستخدام أسماء الحقول الصحيحة في الـ Schema
+    // ✅ الإنشاء - ✅ صحيحة: data: قبل {
     const doctor = await prisma.doctor.create({
-       {
+      data: {  // ← ✅ هذا هو الصحيح
         name: finalName,
         email,
         phone: phone || null,
@@ -69,7 +64,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Doctor created successfully', 
-       { doctor } 
+      data: { doctor } 
     });
 
   } catch (e) {
@@ -108,7 +103,6 @@ router.get('/', async (req, res) => {
         take: parseInt(limit),
         orderBy: { createdAt: 'desc' },
         select: {
-          // ✅ أسماء الحقول الصحيحة حسب الـ Schema
           id: true,
           name: true,
           email: true,
@@ -126,7 +120,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-       {
+      data: {
         doctors,
         pagination: {
           total,
@@ -165,7 +159,7 @@ router.get('/:id', async (req, res) => {
     if (!doctor) {
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
-    res.json({ success: true,  { doctor } });
+    res.json({ success: true, data: { doctor } });
   } catch (e) {
     console.error('❌ Get doctor error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to fetch doctor' });
@@ -195,9 +189,10 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    // ✅ التحديث - ✅ صحيحة: data: قبل {
     const doctor = await prisma.doctor.update({
       where: { id },
-       {
+      data: {  // ← ✅ هذا هو الصحيح
         name: finalName ?? existing.name,
         email: email ?? existing.email,
         phone: phone ?? existing.phone,
@@ -207,7 +202,7 @@ router.put('/:id', async (req, res) => {
         isAvailable: isAvailable ?? existing.isAvailable
       }
     });
-    res.json({ success: true, message: 'Doctor updated',  { doctor } });
+    res.json({ success: true, message: 'Doctor updated', data: { doctor } });
   } catch (e) {
     console.error('❌ Update doctor error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update doctor' });
@@ -242,11 +237,12 @@ router.patch('/:id/availability', async (req, res) => {
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
+    // ✅ التحديث - ✅ صحيحة: data: قبل {
     const doctor = await prisma.doctor.update({ 
       where: { id }, 
-       { isAvailable } 
+      data: { isAvailable }  // ← ✅ هذا هو الصحيح
     });
-    res.json({ success: true, message: 'Availability updated',  { doctor } });
+    res.json({ success: true, message: 'Availability updated', data: { doctor } });
   } catch (e) {
     console.error('❌ Update availability error:', e);
     res.status(500).json({ success: false, message: e.message || 'Failed to update' });
@@ -265,7 +261,7 @@ router.get('/stats/summary', async (req, res) => {
     ]);
     res.json({
       success: true,
-       {
+      data: {
         total,
         available,
         unavailable: total - available,
