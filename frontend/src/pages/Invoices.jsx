@@ -38,7 +38,7 @@ const Invoices = () => {
       if (invRes.data?.success) setInvoices(invRes.data.data?.invoices || []);
       if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
     } catch (err) {
-      console.error('❌ Error fetching data:', err);
+      console.error('❌ Error fetching ', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
       if (err.response?.status === 401) {
         logout();
@@ -113,8 +113,7 @@ const Invoices = () => {
   };
 
   const filteredInvoices = invoices.filter(inv =>
-    inv.patient?.firstName?.toLowerCase().includes(search.toLowerCase()) ||
-    inv.patient?.lastName?.toLowerCase().includes(search.toLowerCase()) ||
+    inv.patient?.name?.toLowerCase().includes(search.toLowerCase()) ||
     inv.description?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -156,7 +155,7 @@ const Invoices = () => {
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <select value={formData.patientId} onChange={(e) => setFormData({...formData, patientId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
                 <option value="">اختر المريض</option>
-                {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
+                {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               <input type="number" placeholder="المبلغ" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required step="0.01" min="0" />
               <input type="text" placeholder="وصف الخدمة" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" required />
@@ -200,7 +199,7 @@ const Invoices = () => {
                   {filteredInvoices.map((inv, index) => (
                     <tr key={inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{inv.patient?.firstName} {inv.patient?.lastName}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{inv.patient?.name || 'غير معروف'}</td>
                       <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{inv.description}</td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-800">
                         <div className="flex items-center gap-1">
