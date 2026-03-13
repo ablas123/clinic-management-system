@@ -1,11 +1,9 @@
-// File: backend/src/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// ✅ المسار الصحيح: ../middleware/auth (يصعد مستوى واحد فقط)
 const { authenticate } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
@@ -22,7 +20,7 @@ router.post('/login', async (req, res) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email },
       include: { doctorProfile: true, labProfile: true }
     });
 
@@ -35,21 +33,50 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
 
-    const sessionConfig = { userId: user.id, token, expiresAt: new Date(Date.now() + 24*60*60*1000) };
+    // ✅ CREATE SESSION: استخدام متغير لتجنب مشكلة :
+    const sessionConfig = {
+      userId: user.id,
+      token: token,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    };
     await prisma.session.create({  sessionConfig });
-    await prisma.user.update({ where: { id: user.id },  { lastLogin: new Date() } });
+
+    // ✅ UPDATE USER: استخدام متغير لتجنب مشكلة :
+    const userUpdateConfig = {
+      lastLogin: new Date()
+    };
+    await prisma.user.update({
+      where: { id: user.id },
+       userUpdateConfig
+    });
 
     const userData = {
-      id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName,
-      role: user.role, avatar: user.avatar,
-      doctorProfile: user.doctorProfile, labProfile: user.labProfile
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      avatar: user.avatar,
+      doctorProfile: user.doctorProfile,
+      labProfile: user.labProfile
     };
 
-    const responseData = { success: true, message: 'Login successful',  { user: userData, token } };
+    // ✅ RESPONSE: استخدام متغير لتجنب مشكلة :
+    const responseData = {
+      success: true,
+      message: 'Login successful',
+       { user: userData, token: token }
+    };
     res.json(responseData);
+
   } catch (e) {
+    console.error('Login error:', e);
     res.status(500).json({ success: false, message: e.message || 'Login failed' });
   }
 });
@@ -60,7 +87,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', authenticate, async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    await prisma.session.deleteMany({ where: { token } });
+    await prisma.session.deleteMany({ where: { token: token } });
     res.json({ success: true, message: 'Logout successful' });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -79,10 +106,19 @@ router.get('/me', authenticate, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
     const userData = {
-      id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName,
-      role: user.role, phone: user.phone, avatar: user.avatar, status: user.status,
-      lastLogin: user.lastLogin, doctorProfile: user.doctorProfile, labProfile: user.labProfile
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      phone: user.phone,
+      avatar: user.avatar,
+      status: user.status,
+      lastLogin: user.lastLogin,
+      doctorProfile: user.doctorProfile,
+      labProfile: user.labProfile
     };
+    
     const responseData = { success: true,  { user: userData } };
     res.json(responseData);
   } catch (e) {
@@ -95,8 +131,12 @@ router.get('/me', authenticate, async (req, res) => {
 // ===========================================
 router.post('/refresh', authenticate, async (req, res) => {
   try {
-    const token = jwt.sign({ userId: req.user.userId, email: req.user.email, role: req.user.role }, JWT_SECRET, { expiresIn: '24h' });
-    const responseData = { success: true,  { token } };
+    const token = jwt.sign(
+      { userId: req.user.userId, email: req.user.email, role: req.user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    const responseData = { success: true,  { token: token } };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
