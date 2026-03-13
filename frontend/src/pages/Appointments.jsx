@@ -43,7 +43,7 @@ const Appointments = () => {
       if (docRes.data?.success) setDoctors(docRes.data.data?.doctors || []);
       if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
     } catch (err) {
-      console.error('❌ Error fetching data:', err);
+      console.error('Error fetching ', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
@@ -74,7 +74,7 @@ const Appointments = () => {
         setFormData({ patientId: '', doctorId: '', date: '', reason: '', status: 'SCHEDULED' });
       }
     } catch (err) {
-      console.error('❌ Error booking appointment:', err);
+      console.error('Error booking appointment:', err);
       setError(err.response?.data?.message || 'فشل حجز الموعد');
     } finally {
       setSubmitting(false);
@@ -125,11 +125,12 @@ const Appointments = () => {
   };
 
   const filteredAppointments = appointments.filter(apt => {
-    const patientName = apt.patient?.firstName + ' ' + apt.patient?.lastName;
-    const doctorName = apt.doctor?.name;
-    return patientName?.toLowerCase().includes(search.toLowerCase()) ||
-           doctorName?.toLowerCase().includes(search.toLowerCase()) ||
-           apt.reason?.toLowerCase().includes(search.toLowerCase());
+    const patientName = (apt.patient?.firstName || '') + ' ' + (apt.patient?.lastName || '');
+    const doctorName = apt.doctor?.name || '';
+    const searchLower = search.toLowerCase();
+    return patientName.toLowerCase().includes(searchLower) ||
+           doctorName.toLowerCase().includes(searchLower) ||
+           (apt.reason || '').toLowerCase().includes(searchLower);
   });
 
   return (
@@ -251,10 +252,12 @@ const Appointments = () => {
                     <tr key={apt.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                        {apt.patient?.firstName} {apt.patient?.lastName}
+                        {apt.patient?.firstName && apt.patient?.lastName 
+                          ? apt.patient.firstName + ' ' + apt.patient.lastName 
+                          : apt.patientId || 'غير معروف'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">
-                        {apt.doctor?.name}
+                        {apt.doctor?.name || 'غير معروف'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {apt.date ? new Date(apt.date).toLocaleDateString('ar-EG') : '-'}
@@ -263,7 +266,7 @@ const Appointments = () => {
                         {apt.reason || '-'}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>{getStatusLabel(apt.status)}</span>
+                        <span className={'inline-block px-3 py-1 rounded-full text-xs font-medium ' + getStatusColor(apt.status)}>{getStatusLabel(apt.status)}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
