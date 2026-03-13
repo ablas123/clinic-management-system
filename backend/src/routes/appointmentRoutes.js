@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-       {
+      data: {
         appointments: appointments,
         pagination: {
           total: total,
@@ -77,7 +77,7 @@ router.get('/', async (req, res) => {
 });
 
 // ===========================================
-// CREATE APPOINTMENT - ✅ تمت الإضافة: include لرجوع بيانات المريض والطبيب
+// CREATE APPOINTMENT - ✅ صحيح: data و include مستقلان
 // ===========================================
 router.post('/', async (req, res) => {
   try {
@@ -98,16 +98,16 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ✅ CREATE مع include: لرجوع بيانات المريض والطبيب مع الموعد
+    // ✅ CREATE: data: قبل { ، و include: مستقل (ليس داخل data)
     const appointment = await prisma.appointment.create({
-       {
+      data: {
         patientId: patientId,
         doctorId: doctorId,
         date: appointmentDate,
         reason: reason || null,
         status: status || 'SCHEDULED'
       },
-      include: {  // ← ✅ هذا هو الحل: إرجاع بيانات المريض والطبيب
+      include: {
         patient: {
           select: {
             id: true,
@@ -130,7 +130,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Appointment booked successfully', 
-       {
+      data: {
         appointment: appointment
       } 
     });
@@ -168,6 +168,7 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    // ✅ UPDATE: data: قبل {
     const appointment = await prisma.appointment.update({
       where: { id: id },
       data: updateData
@@ -176,7 +177,7 @@ router.put('/:id', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Appointment updated', 
-       {
+      data: {
         appointment: appointment
       } 
     });
@@ -216,9 +217,10 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Appointment not found' });
     }
     
+    // ✅ PATCH: data: قبل {
     const appointment = await prisma.appointment.update({ 
       where: { id: id }, 
-       { 
+      data: { 
         status: status 
       } 
     });
@@ -226,7 +228,7 @@ router.patch('/:id/status', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Status updated', 
-       {
+      data: {
         appointment: appointment
       } 
     });
