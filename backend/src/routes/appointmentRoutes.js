@@ -15,7 +15,8 @@ router.get('/', async (req, res) => {
       where.OR = [
         { patient: { firstName: { contains: search, mode: 'insensitive' } } },
         { patient: { lastName: { contains: search, mode: 'insensitive' } } },
-        { doctor: { name: { contains: search, mode: 'insensitive' } } }
+        { doctor: { name: { contains: search, mode: 'insensitive' } } },
+        { reason: { contains: search, mode: 'insensitive' } }
       ];
     }
     if (status) where.status = status;
@@ -30,10 +31,8 @@ router.get('/', async (req, res) => {
         select: {
           id: true,
           date: true,
-          time: true,
-          type: true,
+          reason: true,
           status: true,
-          notes: true,
           patient: {
             select: {
               id: true,
@@ -80,12 +79,12 @@ router.get('/', async (req, res) => {
 // ===========================================
 router.post('/', async (req, res) => {
   try {
-    const { patientId, doctorId, date, time, type, notes } = req.body;
+    const { patientId, doctorId, date, reason, status } = req.body;
 
-    if (!patientId || !doctorId || !date || !time) {
+    if (!patientId || !doctorId || !date) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Patient, doctor, date, and time are required' 
+        message: 'Patient, doctor, and date are required' 
       });
     }
 
@@ -94,10 +93,8 @@ router.post('/', async (req, res) => {
         patientId: patientId,
         doctorId: doctorId,
         date: date,
-        time: time,
-        type: type || 'CHECKUP',
-        notes: notes || null,
-        status: 'PENDING'
+        reason: reason || null,
+        status: status || 'PENDING'
       }
     });
 
@@ -123,7 +120,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, time, type, notes, status } = req.body;
+    const { date, reason, status } = req.body;
 
     const existing = await prisma.appointment.findUnique({ where: { id: id } });
     if (!existing) {
@@ -134,9 +131,7 @@ router.put('/:id', async (req, res) => {
       where: { id: id },
       data: {
         date: date !== undefined ? date : existing.date,
-        time: time !== undefined ? time : existing.time,
-        type: type !== undefined ? type : existing.type,
-        notes: notes !== undefined ? notes : existing.notes,
+        reason: reason !== undefined ? reason : existing.reason,
         status: status !== undefined ? status : existing.status
       }
     });
