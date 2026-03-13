@@ -7,7 +7,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const prisma = new PrismaClient();
 
 // ===========================================
-// GET ALL PATIENTS - Roles: ADMIN, DOCTOR, RECEPTIONIST
+// GET ALL PATIENTS
 // ===========================================
 router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -23,7 +23,6 @@ router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), asyn
       ];
     }
 
-    // If DOCTOR, only show their patients (via appointments)
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
       if (doctor) {
@@ -64,7 +63,7 @@ router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), asyn
 });
 
 // ===========================================
-// GET PATIENT BY ID - Roles: ADMIN, DOCTOR, RECEPTIONIST
+// GET PATIENT BY ID
 // ===========================================
 router.get('/:id', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -72,10 +71,10 @@ router.get('/:id', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), a
       where: { id: req.params.id },
       include: {
         appointments: {
-          include: { doctor: { select: { id: true, name: true, specialty: true } } }
+          include: { doctor: { select: { id: true, specialty: true } } }
         },
         invoices: { select: { id: true, totalAmount: true, status: true } },
-        labResults: { select: { id: true, labTest: { select: { name: true } }, status: true } }
+        labResults: { select: { id: true, status: true } }
       }
     });
 
@@ -91,7 +90,7 @@ router.get('/:id', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), a
 });
 
 // ===========================================
-// CREATE PATIENT - Roles: ADMIN, RECEPTIONIST
+// CREATE PATIENT - ✅ استخدام نمط config الآمن
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -101,7 +100,8 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
       return res.status(400).json({ success: false, message: 'First name, last name, and phone are required' });
     }
 
-    const patientConfig = {
+    // ✅ بناء كائن الإدخال في متغير أولاً
+    const patientInput = {
       firstName,
       lastName,
       email: email || null,
@@ -115,7 +115,9 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
       medicalHistory: medicalHistory || null
     };
 
-    const patient = await prisma.patient.create({  patientConfig });
+    // ✅ تمرير الكائن لـ Prisma باستخدام متغير
+    const createConfig = {  patientInput };
+    const patient = await prisma.patient.create(createConfig);
 
     const responseData = { success: true, message: 'Patient created',  { patient } };
     res.status(201).json(responseData);
@@ -125,7 +127,7 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
 });
 
 // ===========================================
-// UPDATE PATIENT - Roles: ADMIN, RECEPTIONIST
+// UPDATE PATIENT - ✅ استخدام نمط config الآمن
 // ===========================================
 router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -137,7 +139,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    const updateConfig = {
+    const updateInput = {
       firstName: firstName !== undefined ? firstName : existing.firstName,
       lastName: lastName !== undefined ? lastName : existing.lastName,
       email: email !== undefined ? email : existing.email,
@@ -151,10 +153,8 @@ router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
       medicalHistory: medicalHistory !== undefined ? medicalHistory : existing.medicalHistory
     };
 
-    const patient = await prisma.patient.update({
-      where: { id },
-       updateConfig
-    });
+    const updateConfig = { where: { id },  updateInput };
+    const patient = await prisma.patient.update(updateConfig);
 
     const responseData = { success: true, message: 'Patient updated',  { patient } };
     res.json(responseData);
@@ -164,7 +164,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
 });
 
 // ===========================================
-// DELETE PATIENT - Role: ADMIN only
+// DELETE PATIENT
 // ===========================================
 router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
