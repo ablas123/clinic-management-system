@@ -60,6 +60,7 @@ const Appointments = () => {
     setError('');
 
     try {
+      // ✅ إرسال التاريخ كما هو، الباكند سيحوله
       const response = await api.post('/appointments', {
         patientId: formData.patientId,
         doctorId: formData.doctorId,
@@ -257,7 +258,7 @@ const Appointments = () => {
                         {apt.doctor?.name}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {apt.date}
+                        {apt.date ? new Date(apt.date).toLocaleDateString('ar-EG') : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">
                         {apt.reason || '-'}
