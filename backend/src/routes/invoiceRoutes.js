@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
 
     const [invoices, total] = await Promise.all([
       prisma.invoice.findMany({
-        where,
+        where: where,
         skip: (page - 1) * limit,
         take: parseInt(limit),
         orderBy: { createdAt: 'desc' },
@@ -35,19 +35,22 @@ router.get('/', async (req, res) => {
           patient: {
             select: {
               id: true,
-              name: true
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true
             }
           },
           createdAt: true,
           updatedAt: true
         }
       }),
-      prisma.invoice.count({ where })
+      prisma.invoice.count({ where: where })
     ]);
 
     res.json({
       success: true,
-      data: {
+       {
         invoices: invoices,
         pagination: {
           total: total,
@@ -79,7 +82,10 @@ router.get('/:id', async (req, res) => {
         patient: {
           select: {
             id: true,
-            name: true
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true
           }
         },
         createdAt: true,
@@ -91,7 +97,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json({
       success: true,
-      data: {
+       {
         invoice: invoice
       }
     });
@@ -115,8 +121,9 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // ✅ CREATE: data: قبل {
     const invoice = await prisma.invoice.create({
-      data: {
+       {
         patientId: patientId,
         amount: parseFloat(amount),
         description: description,
@@ -128,7 +135,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'Invoice created successfully', 
-      data: {
+       {
         invoice: invoice
       } 
     });
@@ -154,9 +161,10 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
+    // ✅ UPDATE: data: قبل {
     const invoice = await prisma.invoice.update({
       where: { id: id },
-      data: {
+       {
         amount: amount ? parseFloat(amount) : existing.amount,
         description: description !== undefined ? description : existing.description,
         status: status !== undefined ? status : existing.status,
@@ -167,7 +175,7 @@ router.put('/:id', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Invoice updated', 
-      data: {
+       {
         invoice: invoice
       } 
     });
@@ -207,9 +215,10 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
     
+    // ✅ PATCH: data: قبل {
     const invoice = await prisma.invoice.update({ 
       where: { id: id }, 
-      data: { 
+       { 
         status: status 
       } 
     });
@@ -217,7 +226,7 @@ router.patch('/:id/status', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Status updated', 
-      data: {
+       {
         invoice: invoice
       } 
     });
