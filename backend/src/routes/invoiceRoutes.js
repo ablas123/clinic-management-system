@@ -1,67 +1,211 @@
 // ===========================================
-// 💰 INVOICE ROUTES
+// 💰 INVOICES ROUTES - مطابق لـ Prisma Schema
 // ===========================================
+// File: backend/src/routes/invoiceRoutes.js
 
 const express = require('express');
 const router = express.Router();
-const {
-  getAllInvoices,
-  getInvoiceById,
-  createInvoice,
-  updateInvoice,
-  deleteInvoice,
-  markAsPaid,
-  cancelInvoice,
-  getInvoiceStats,
-  getInvoicesByPatient,
-  getOverdueInvoices
-} = require('../controllers/invoiceController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
 
 // ===========================================
-// 🔒 ALL ROUTES PROTECTED (Authentication Required)
+// 📥 GET ALL INVOICES
 // ===========================================
+router.get('/', async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, status } = req.query;
+    const where = {};
 
-// Apply protect middleware to all routes in this file
-router.use(protect);
+    if (search) {
+      where.OR = [
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    if (status) {
+      where.status = status;
+    }
+
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          amount: true,
+          description: true,
+          status: true,
+          dueDate: true,
+          patient: {
+            select: {
+              id: true,
+              name: true  // ✅ استخدم name وليس firstName
+            }
+          },
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.invoice.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+       {
+        invoices,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (e) {
+    console.error('❌ Get all invoices error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to fetch invoices' });
+  }
+});
 
 // ===========================================
-// 💰 INVOICE ENDPOINTS
+// 📥 GET INVOICE BY ID
 // ===========================================
-
-// GET /api/invoices - Get all invoices (with filters)
-// Query params: ?page=1&limit=10&status=PENDING&patientId=xxx
-router.get('/', getAllInvoices);
-
-// GET /api/invoices/stats - Get invoice statistics (Admin only)
-router.get('/stats', authorize('ADMIN'), getInvoiceStats);
-
-// GET /api/invoices/overdue - Get overdue invoices (Admin, Staff)
-router.get('/overdue', authorize('ADMIN', 'STAFF'), getOverdueInvoices);
-
-// GET /api/invoices/:id - Get single invoice by ID
-router.get('/:id', getInvoiceById);
-
-// POST /api/invoices - Create new invoice (Admin, Staff)
-router.post('/', authorize('ADMIN', 'STAFF'), createInvoice);
-
-// PUT /api/invoices/:id - Update invoice (Admin, Staff)
-router.put('/:id', authorize('ADMIN', 'STAFF'), updateInvoice);
-
-// DELETE /api/invoices/:id - Delete invoice (Admin only)
-router.delete('/:id', authorize('ADMIN'), deleteInvoice);
-
-// PATCH /api/invoices/:id/pay - Mark invoice as paid (Admin, Staff)
-router.patch('/:id/pay', authorize('ADMIN', 'STAFF'), markAsPaid);
-
-// PATCH /api/invoices/:id/cancel - Cancel invoice (Admin only)
-router.patch('/:id/cancel', authorize('ADMIN'), cancelInvoice);
-
-// GET /api/invoices/patient/:patientId - Get invoices by patient
-router.get('/patient/:patientId', authorize('ADMIN', 'DOCTOR', 'STAFF'), getInvoicesByPatient);
+router.get('/:id', async (req, res) => {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        amount: true,
+        description: true,
+        status: true,
+        dueDate: true,
+        patient: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    res.json({ success: true,  { invoice } });
+  } catch (e) {
+    console.error('❌ Get invoice error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to fetch invoice' });
+  }
+});
 
 // ===========================================
-// 📤 EXPORT ROUTER
+// 📤 CREATE INVOICE
 // ===========================================
+router.post('/', async (req, res) => {
+  try {
+    const { patientId, amount, description, status, dueDate } = req.body;
+
+    if (!patientId || !amount || !description) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Patient ID, amount, and description are required' 
+      });
+    }
+
+    const invoice = await prisma.invoice.create({
+       {
+        patientId,
+        amount: parseFloat(amount),
+        description,
+        status: status || 'PENDING',
+        dueDate: dueDate ? new Date(dueDate) : null
+      }
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Invoice created successfully', 
+       { invoice } 
+    });
+  } catch (e) {
+    console.error('❌ Create invoice error:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: e.message || 'Failed to create invoice' 
+    });
+  }
+});
+
+// ===========================================
+// ✏️ UPDATE INVOICE
+// ===========================================
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, description, status, dueDate } = req.body;
+
+    const existing = await prisma.invoice.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    const invoice = await prisma.invoice.update({
+      where: { id },
+       {
+        amount: amount ? parseFloat(amount) : existing.amount,
+        description: description ?? existing.description,
+        status: status ?? existing.status,
+        dueDate: dueDate ? new Date(dueDate) : existing.dueDate
+      }
+    });
+    res.json({ success: true, message: 'Invoice updated',  { invoice } });
+  } catch (e) {
+    console.error('❌ Update invoice error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update invoice' });
+  }
+});
+
+// ===========================================
+// 🗑️ DELETE INVOICE
+// ===========================================
+router.delete('/:id', async (req, res) => {
+  try {
+    const existing = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    await prisma.invoice.delete({ where: { id: req.params.id } });
+    res.json({ success: true, message: 'Invoice deleted' });
+  } catch (e) {
+    console.error('❌ Delete invoice error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to delete invoice' });
+  }
+});
+
+// ===========================================
+// 🔄 UPDATE INVOICE STATUS
+// ===========================================
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const existing = await prisma.invoice.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    const invoice = await prisma.invoice.update({ 
+      where: { id }, 
+       { status } 
+    });
+    res.json({ success: true, message: 'Status updated',  { invoice } });
+  } catch (e) {
+    console.error('❌ Update status error:', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update status' });
+  }
+});
 
 module.exports = router;
