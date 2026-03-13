@@ -1,4 +1,4 @@
-// File: backend/src/routes/invoiceRoutes.js
+// File: backend/src/routes/labRoutes.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
@@ -8,62 +8,35 @@ const prisma = new PrismaClient();
 const DATA_KEY = 'data';
 
 // ===========================================
-// GET ALL INVOICES
+// GET ALL LAB TESTS
 // ===========================================
-router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST', 'DOCTOR'), async (req, res) => {
+router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'RECEPTIONIST'), async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, status, patientId } = req.query;
-    const where = {};
+    const { page = 1, limit = 10, search, category } = req.query;
+    const where = { isActive: true };
 
     if (search) {
       where.OR = [
-        { description: { contains: search, mode: 'insensitive' } },
-        { patient: { firstName: { contains: search, mode: 'insensitive' } } },
-        { patient: { lastName: { contains: search, mode: 'insensitive' } } }
+        { name: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } }
       ];
     }
-    if (status) where.status = status;
-    if (patientId) where.patientId = patientId;
+    if (category) where.category = category;
 
-    // If DOCTOR, only show invoices for their patients
-    if (req.user.role === 'DOCTOR') {
-      const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
-      if (doctor) {
-        const appointments = await prisma.appointment.findMany({
-          where: { doctorId: doctor.id },
-          select: { patientId: true }
-        });
-        where.patientId = { in: appointments.map(a => a.patientId) };
-      }
-    }
-
-    const [invoices, total] = await Promise.all([
-      prisma.invoice.findMany({
+    const [labTests, total] = await Promise.all([
+      prisma.labTest.findMany({
         where,
         skip: (page - 1) * limit,
         take: parseInt(limit),
-        orderBy: { createdAt: 'desc' },
-        include: {
-          patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
-          appointment: { 
-            select: { 
-              id: true, 
-              date: true, 
-              doctor: { 
-                include: { user: { select: { firstName: true, lastName: true } } } 
-              } 
-            } 
-          },
-          items: true
-        }
+        orderBy: { name: 'asc' }
       }),
-      prisma.invoice.count({ where })
+      prisma.labTest.count({ where })
     ]);
 
     const responseData = {
       success: true,
       ['data']: {
-        invoices,
+        labTests,
         pagination: {
           total,
           page: parseInt(page),
@@ -79,50 +52,69 @@ router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST', 'DOCTOR'), asyn
 });
 
 // ===========================================
-// CREATE INVOICE - ✅ مع عناصر الفاتورة
+// CREATE LAB REQUEST - ✅ من قبل الطبيب
 // ===========================================
-router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
+router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => {
   try {
-    const { patientId, appointmentId, totalAmount, description, status, items } = req.body;
+    const { patientId, testIds, priority, notes } = req.body;
 
-    if (!patientId || !totalAmount) {
-      return res.status(400).json({ success: false, message: 'Patient ID and amount are required' });
+    if (!patientId || !testIds || !Array.isArray(testIds) || testIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Patient ID and test IDs are required' });
     }
 
-    // ✅ 1. إنشاء الفاتورة الرئيسية
+    // ✅ 1. جلب ملف الطبيب
+    const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
+    if (!doctor) {
+      return res.status(403).json({ success: false, message: 'Doctor profile not found' });
+    }
+
+    // ✅ 2. إنشاء طلب المختبر
+    const requestPayload = {
+      patientId,
+      doctorId: doctor.id,
+      status: 'PENDING',
+      priority: priority || 'NORMAL',
+      notes: notes || null,
+      tests: { connect: testIds.map(id => ({ id })) }
+    };
+    const requestConfig = { [DATA_KEY]: requestPayload, include: { tests: true } };
+    const labRequest = await prisma.labRequest.create(requestConfig);
+
+    // ✅ 3. إنشاء نتائج مبدئية لكل فحص
+    const resultPayloads = testIds.map(testId => ({
+      patientId,
+      labTestId: testId,
+      requestId: labRequest.id,
+      value: '',
+      status: 'PENDING',
+      isAbnormal: false
+    }));
+
+    await prisma.labResult.createMany({
+      [DATA_KEY]: { data: resultPayloads }
+    });
+
+    // ✅ 4. توليد فاتورة للفحوصات
+    const tests = await prisma.labTest.findMany({
+      where: { id: { in: testIds } },
+      select: { price: true, name: true }
+    });
+    const totalAmount = tests.reduce((sum, t) => sum + parseFloat(t.price), 0);
+
     const invoicePayload = {
       patientId,
-      appointmentId: appointmentId || null,
-      totalAmount: parseFloat(totalAmount),
-      paidAmount: 0,
-      discount: 0,
-      description: description || 'Service charge',
-      status: status || 'PENDING',
+      totalAmount,
+      description: `فحوصات مختبر: ${tests.map(t => t.name).join(', ')}`,
+      status: 'PENDING',
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     };
     const invoiceConfig = { [DATA_KEY]: invoicePayload };
-    const invoice = await prisma.invoice.create(invoiceConfig);
-
-    // ✅ 2. إضافة عناصر الفاتورة إذا وُجدت
-    if (items && Array.isArray(items) && items.length > 0) {
-      const itemPayloads = items.map(item => ({
-        invoiceId: invoice.id,
-        description: item.description,
-        quantity: parseInt(item.quantity) || 1,
-        unitPrice: parseFloat(item.unitPrice),
-        total: parseFloat(item.unitPrice) * (parseInt(item.quantity) || 1),
-        type: item.type || 'SERVICE'
-      }));
-      
-      await prisma.invoiceItem.createMany({
-        [DATA_KEY]: { data: itemPayloads }
-      });
-    }
+    await prisma.invoice.create(invoiceConfig);
 
     const responseData = { 
       success: true, 
-      message: 'Invoice created', 
-      ['data']: { invoice } 
+      message: 'Lab request created + invoice generated', 
+      ['data']: { labRequest } 
     };
     res.status(201).json(responseData);
   } catch (e) {
@@ -131,39 +123,43 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
 });
 
 // ===========================================
-// UPDATE PAYMENT STATUS - ✅ مع تسجيل وقت الدفع
+// UPDATE LAB RESULT - ✅ من قبل فني المختبر
 // ===========================================
-router.patch('/:id/payment', authenticate, authorize('RECEPTIONIST', 'ADMIN'), async (req, res) => {
+router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, paidAmount, paymentMethod } = req.body;
+    const { value, unit, isAbnormal, notes, status } = req.body;
 
-    const existing = await prisma.invoice.findUnique({ where: { id } });
+    const existing = await prisma.labResult.findUnique({ where: { id } });
     if (!existing) {
-      return res.status(404).json({ success: false, message: 'Invoice not found' });
+      return res.status(404).json({ success: false, message: 'Lab result not found' });
     }
 
     const updatePayload = {
+      value: value !== undefined ? value : existing.value,
+      unit: unit !== undefined ? unit : existing.unit,
+      referenceRange: existing.referenceRange,
+      isAbnormal: isAbnormal !== undefined ? (isAbnormal === true || isAbnormal === 'true') : existing.isAbnormal,
       status: status || existing.status,
-      paidAmount: paidAmount !== undefined ? parseFloat(paidAmount) : existing.paidAmount,
-      paymentMethod: paymentMethod || existing.paymentMethod,
-      paidAt: status === 'PAID' ? new Date() : existing.paidAt
+      notes: notes !== undefined ? notes : existing.notes,
+      technicianId: req.user.userId,
+      verifiedAt: status === 'VERIFIED' ? new Date() : existing.verifiedAt
     };
     const updateConfig = { where: { id }, [DATA_KEY]: updatePayload };
-    const invoice = await prisma.invoice.update(updateConfig);
+    const result = await prisma.labResult.update(updateConfig);
 
-    // ✅ إذا دُفعت الفاتورة كاملة، تحديث موعد مرتبط إن وُجد
-    if (status === 'PAID' && invoice.paidAmount >= invoice.totalAmount && invoice.appointmentId) {
-      await prisma.appointment.update({
-        where: { id: invoice.appointmentId },
-        [DATA_KEY]: { status: 'COMPLETED' }
+    // ✅ إذا وُثّقت النتيجة، تحديث حالة الطلب
+    if (status === 'VERIFIED') {
+      await prisma.labRequest.update({
+        where: { id: existing.requestId },
+        [DATA_KEY]: { status: 'COMPLETED', completedAt: new Date() }
       });
     }
 
     const responseData = { 
       success: true, 
-      message: 'Payment updated', 
-      ['data']: { invoice } 
+      message: 'Result updated', 
+      ['data']: { result } 
     };
     res.json(responseData);
   } catch (e) {
@@ -172,16 +168,42 @@ router.patch('/:id/payment', authenticate, authorize('RECEPTIONIST', 'ADMIN'), a
 });
 
 // ===========================================
-// DELETE INVOICE
+// GET PATIENT LAB RESULTS - ✅ للطبيب أو المريض
 // ===========================================
-router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+router.get('/results/patient/:patientId', authenticate, async (req, res) => {
   try {
-    const existing = await prisma.invoice.findUnique({ where: { id: req.params.id } });
-    if (!existing) {
-      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    const { patientId } = req.params;
+    const { status } = req.query;
+
+    // التحقق من الصلاحية
+    if (req.user.role === 'DOCTOR') {
+      const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
+      if (doctor) {
+        const hasAppointment = await prisma.appointment.findFirst({
+          where: { patientId, doctorId: doctor.id }
+        });
+        if (!hasAppointment && req.user.role !== 'ADMIN') {
+          return res.status(403).json({ success: false, message: 'Not authorized for this patient' });
+        }
+      }
+    } else if (req.user.role !== 'ADMIN' && req.user.role !== 'LAB_TECH') {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
-    await prisma.invoice.delete({ where: { id: req.params.id } });
-    res.json({ success: true, message: 'Invoice deleted' });
+
+    const where = { patientId };
+    if (status) where.status = status;
+
+    const results = await prisma.labResult.findMany({
+      where,
+      include: {
+        labTest: { select: { name: true, code: true, unit: true, referenceRange: true } },
+        request: { select: { priority: true, notes: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const responseData = { success: true, ['data']: { results } };
+    res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
