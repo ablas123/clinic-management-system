@@ -30,13 +30,24 @@ const Invoices = () => {
     try {
       setLoading(true);
       setError('');
+      
+      console.log('🔍 Fetching invoices and patients...');
       const [invRes, patRes] = await Promise.all([
         api.get('/invoices'),
         api.get('/patients')
       ]);
       
-      if (invRes.data?.success) setInvoices(invRes.data.data?.invoices || []);
-      if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
+      console.log('✅ Invoices response:', invRes.data);
+      console.log('✅ Patients response:', patRes.data);
+      
+      if (invRes.data?.success) {
+        setInvoices(invRes.data.data?.invoices || []);
+        console.log('📊 Invoices count:', invRes.data.data?.invoices?.length);
+      }
+      if (patRes.data?.success) {
+        setPatients(patRes.data.data?.patients || []);
+        console.log('👥 Patients count:', patRes.data.data?.patients?.length);
+      }
     } catch (err) {
       console.error('❌ Error fetching ', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
@@ -55,16 +66,20 @@ const Invoices = () => {
     setError('');
 
     try {
+      console.log('📤 Creating invoice:', formData);
       const response = await api.post('/invoices', {
         ...formData,
         amount: parseFloat(formData.amount)
       });
+      console.log('✅ Invoice created:', response.data);
+      
       if (response.data?.success) {
         setInvoices([response.data.data?.invoice, ...invoices]);
         setShowForm(false);
         setFormData({ patientId: '', amount: '', description: '', status: 'PENDING' });
       }
     } catch (err) {
+      console.error('❌ Error creating invoice:', err);
       setError(err.response?.data?.message || 'فشل إنشاء الفاتورة');
     } finally {
       setSubmitting(false);
@@ -181,7 +196,19 @@ const Invoices = () => {
           {loading ? (
             <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-orange-500 mb-2" /><p className="text-gray-600">جاري التحميل...</p></div>
           ) : filteredInvoices.length === 0 ? (
-            <div className="p-8 text-center text-gray-500"><FileText className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>{search ? 'لا توجد نتائج' : 'لا توجد فواتير'}</p></div>
+            <div className="p-8 text-center text-gray-500">
+              <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{search ? 'لا توجد نتائج' : 'لا توجد فواتير'}</p>
+              {/* زر اختبار لإنشاء فاتورة سريعة */}
+              {!search && invoices.length === 0 && (
+                <button 
+                  onClick={() => setShowForm(true)} 
+                  className="mt-4 text-orange-600 hover:text-orange-700 font-medium"
+                >
+                  + أنشئ أول فاتورة
+                </button>
+              )}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -199,7 +226,9 @@ const Invoices = () => {
                   {filteredInvoices.map((inv, index) => (
                     <tr key={inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{inv.patient?.name || 'غير معروف'}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                        {inv.patient?.name || inv.patientId || 'غير معروف'}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{inv.description}</td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-800">
                         <div className="flex items-center gap-1">
@@ -233,4 +262,5 @@ const Invoices = () => {
   );
 };
 
+// ✅ هذا السطر ضروري جداً!
 export default Invoices;
