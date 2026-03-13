@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-       {
+      data: {
         doctors,
         pagination: {
           total,
@@ -112,7 +112,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({ 
       success: true, 
-       { doctor } 
+      data: { doctor } 
     });
 
   } catch (e) {
@@ -129,25 +129,35 @@ router.get('/:id', async (req, res) => {
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
+    // ✅ تقبّل كلا الصيغتين (للمرونة)
     const { 
       firstName, 
       lastName, 
+      name,  // ← بديل لـ firstName + lastName
       email, 
       phone, 
       specialization, 
+      specialty,  // ← بديل لـ specialization
       licenseNumber, 
       isAvailable 
     } = req.body;
 
-    // ✅ Validate required fields (matching frontend)
-    if (!firstName || !lastName || !email || !specialization) {
+    // ✅ دعم كلا الصيغتين: firstName+lastName أو name مدمج
+    const finalFirstName = firstName || (name ? name.split(' ')[0] : '');
+    const finalLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : '');
+
+    // ✅ دعم كلا الصيغتين: specialization أو specialty
+    const finalSpecialization = specialization || specialty || '';
+
+    // ✅ التحقق من الحقول المطلوبة
+    if (!finalFirstName || !finalLastName || !email || !finalSpecialization) {
       return res.status(400).json({ 
         success: false, 
-        message: 'First name, last name, email, and specialization are required' 
+        message: 'First name, last name, email, and specialization are required. Or send: name, email, specialty' 
       });
     }
 
-    // ✅ Check for duplicate email
+    // ✅ التحقق من عدم تكرار البريد
     const existing = await prisma.doctor.findUnique({ where: { email } });
     if (existing) {
       return res.status(400).json({ 
@@ -156,23 +166,25 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       });
     }
 
-    // ✅ Create doctor
+    // ✅ إنشاء الطبيب
     const doctor = await prisma.doctor.create({
-       {
-        firstName,
-        lastName,
+      data: {
+        firstName: finalFirstName,
+        lastName: finalLastName,
         email,
         phone: phone || null,
-        specialization,
+        specialization: finalSpecialization,
         licenseNumber: licenseNumber || null,
         isAvailable: isAvailable ?? true
       }
     });
 
+    console.log('✅ Doctor created:', doctor.id);
+
     res.status(201).json({ 
       success: true, 
       message: 'Doctor created successfully', 
-       { doctor } 
+      data: { doctor } 
     });
 
   } catch (e) {
@@ -193,14 +205,21 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
     const { 
       firstName, 
       lastName, 
+      name,
       email, 
       phone, 
       specialization, 
+      specialty, 
       licenseNumber, 
       isAvailable 
     } = req.body;
 
-    // ✅ Check if doctor exists
+    // ✅ دعم كلا الصيغتين
+    const finalFirstName = firstName || (name ? name.split(' ')[0] : undefined);
+    const finalLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : undefined);
+    const finalSpecialization = specialization || specialty || undefined;
+
+    // ✅ التحقق من وجود الطبيب
     const existing = await prisma.doctor.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ 
@@ -209,7 +228,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
       });
     }
 
-    // ✅ Check for duplicate email (if email changed)
+    // ✅ التحقق من عدم تكرار البريد
     if (email && email !== existing.email) {
       const emailExists = await prisma.doctor.findUnique({ where: { email } });
       if (emailExists) {
@@ -220,15 +239,15 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
       }
     }
 
-    // ✅ Update doctor
+    // ✅ تحديث الطبيب
     const doctor = await prisma.doctor.update({
       where: { id },
-       {
-        firstName: firstName ?? existing.firstName,
-        lastName: lastName ?? existing.lastName,
+      data: {
+        firstName: finalFirstName ?? existing.firstName,
+        lastName: finalLastName ?? existing.lastName,
         email: email ?? existing.email,
         phone: phone ?? existing.phone,
-        specialization: specialization ?? existing.specialization,
+        specialization: finalSpecialization ?? existing.specialization,
         licenseNumber: licenseNumber ?? existing.licenseNumber,
         isAvailable: isAvailable ?? existing.isAvailable
       }
@@ -237,7 +256,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Doctor updated successfully', 
-       { doctor } 
+      data: { doctor } 
     });
 
   } catch (e) {
@@ -256,7 +275,7 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ✅ Check if doctor exists
+    // ✅ التحقق من وجود الطبيب
     const existing = await prisma.doctor.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ 
@@ -265,7 +284,7 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
       });
     }
 
-    // ✅ Delete doctor
+    // ✅ حذف الطبيب
     await prisma.doctor.delete({ where: { id } });
 
     res.json({ 
@@ -290,7 +309,7 @@ router.patch('/:id/availability', authenticate, authorize('ADMIN'), async (req, 
     const { id } = req.params;
     const { isAvailable } = req.body;
 
-    // ✅ Check if doctor exists
+    // ✅ التحقق من وجود الطبيب
     const existing = await prisma.doctor.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ 
@@ -299,16 +318,16 @@ router.patch('/:id/availability', authenticate, authorize('ADMIN'), async (req, 
       });
     }
 
-    // ✅ Update availability
+    // ✅ تحديث حالة التوفر
     const doctor = await prisma.doctor.update({
       where: { id },
-       { isAvailable }
+      data: { isAvailable }
     });
 
     res.json({ 
       success: true, 
       message: 'Doctor availability updated', 
-       { doctor } 
+      data: { doctor } 
     });
 
   } catch (e) {
@@ -336,7 +355,7 @@ router.get('/stats/summary', authenticate, authorize('ADMIN'), async (req, res) 
 
     res.json({
       success: true,
-       {
+      data: {
         total,
         available,
         unavailable: total - available,
