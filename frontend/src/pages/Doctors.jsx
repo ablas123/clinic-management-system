@@ -35,12 +35,10 @@ const Doctors = () => {
       const response = await api.get('/doctors');
       if (response.data?.success) {
         setDoctors(response.data.data?.doctors || []);
-      } else {
-        setError(response.data?.message || 'فشل جلب البيانات');
       }
     } catch (err) {
       console.error('❌ Error fetching doctors:', err);
-      setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
+      setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
         navigate('/login');
@@ -56,14 +54,39 @@ const Doctors = () => {
     setError('');
 
     try {
-      const response = await api.post('/doctors', formData);
+      // 🔍 تسجيل ما سيتم إرساله
+      console.log('📤 Sending doctor data:', formData);
+
+      // ✅ إرسال البيانات بنفس أسماء الحقول التي يتوقعها الباكند
+      const response = await api.post('/doctors', {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        specialization: formData.specialization,
+        licenseNumber: formData.licenseNumber,
+        isAvailable: formData.isAvailable
+      });
+
+      console.log('✅ Response:', response.data);
+
       if (response.data?.success) {
         setDoctors([response.data.data?.doctor, ...doctors]);
         setShowForm(false);
         setFormData({ firstName: '', lastName: '', email: '', phone: '', specialization: '', licenseNumber: '', isAvailable: true });
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل إضافة الطبيب');
+      console.error('❌ Error creating doctor:', err);
+      
+      // 🎯 عرض رسالة الخطأ الواضحة من الباكند
+      const msg = err.response?.data?.message || 'فشل إضافة الطبيب';
+      setError(msg);
+      
+      // إذا كان الخطأ 401، سجل الخروج
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -77,7 +100,7 @@ const Doctors = () => {
         setDoctors(doctors.filter(d => d.id !== id));
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل حذف الطبيب');
+      setError(err.response?.data?.message || 'فشل الحذف');
     }
   };
 
@@ -88,7 +111,7 @@ const Doctors = () => {
         setDoctors(doctors.map(d => d.id === id ? { ...d, isAvailable: !currentStatus } : d));
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل تحديث الحالة');
+      setError(err.response?.data?.message || 'فشل التحديث');
     }
   };
 
@@ -134,12 +157,12 @@ const Doctors = () => {
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" placeholder="الاسم الأول" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="text" placeholder="اسم العائلة" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="tel" placeholder="رقم الهاتف" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="text" placeholder="التخصص (مثال: قلب، أطفال)" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="text" placeholder="رقم الترخيص" value={formData.licenseNumber} onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="text" placeholder="الاسم الأول *" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="text" placeholder="اسم العائلة *" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="email" placeholder="البريد الإلكتروني *" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="tel" placeholder="رقم الهاتف" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" />
+              <input type="text" placeholder="التخصص *" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="text" placeholder="رقم الترخيص" value={formData.licenseNumber} onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" />
               <div className="md:col-span-2 flex gap-3 pt-2">
                 <button type="submit" disabled={submitting} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
