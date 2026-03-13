@@ -20,7 +20,7 @@ const Appointments = () => {
     doctorId: '',
     date: '',
     reason: '',
-    status: 'PENDING'
+    status: 'SCHEDULED'
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,7 +43,7 @@ const Appointments = () => {
       if (docRes.data?.success) setDoctors(docRes.data.data?.doctors || []);
       if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
     } catch (err) {
-      console.error('❌ Error fetching ', err);
+      console.error('❌ Error fetching data:', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
@@ -60,7 +60,6 @@ const Appointments = () => {
     setError('');
 
     try {
-      // ✅ إرسال التاريخ كما هو، الباكند سيحوله
       const response = await api.post('/appointments', {
         patientId: formData.patientId,
         doctorId: formData.doctorId,
@@ -72,7 +71,7 @@ const Appointments = () => {
       if (response.data?.success) {
         setAppointments([response.data.data?.appointment, ...appointments]);
         setShowForm(false);
-        setFormData({ patientId: '', doctorId: '', date: '', reason: '', status: 'PENDING' });
+        setFormData({ patientId: '', doctorId: '', date: '', reason: '', status: 'SCHEDULED' });
       }
     } catch (err) {
       console.error('❌ Error booking appointment:', err);
@@ -107,17 +106,17 @@ const Appointments = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'PENDING': return 'bg-yellow-100 text-yellow-700';
+      case 'SCHEDULED': return 'bg-blue-100 text-blue-700';
       case 'CONFIRMED': return 'bg-green-100 text-green-700';
       case 'CANCELLED': return 'bg-red-100 text-red-700';
-      case 'COMPLETED': return 'bg-blue-100 text-blue-700';
+      case 'COMPLETED': return 'bg-purple-100 text-purple-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case 'PENDING': return 'معلق';
+      case 'SCHEDULED': return 'مجدول';
       case 'CONFIRMED': return 'مؤكد';
       case 'CANCELLED': return 'ملغي';
       case 'COMPLETED': return 'مكتمل';
@@ -268,14 +267,14 @@ const Appointments = () => {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          {apt.status === 'PENDING' && (
+                          {apt.status === 'SCHEDULED' && (
                             <button onClick={() => updateStatus(apt.id, 'CONFIRMED')} className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded" title="تأكيد"><CheckCircle className="w-4 h-4" /></button>
                           )}
                           {apt.status !== 'CANCELLED' && apt.status !== 'COMPLETED' && (
                             <button onClick={() => updateStatus(apt.id, 'CANCELLED')} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="إلغاء"><XCircle className="w-4 h-4" /></button>
                           )}
                           {apt.status === 'CONFIRMED' && (
-                            <button onClick={() => updateStatus(apt.id, 'COMPLETED')} className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded" title="إكمال"><CheckCircle className="w-4 h-4" /></button>
+                            <button onClick={() => updateStatus(apt.id, 'COMPLETED')} className="text-purple-600 hover:text-purple-700 p-2 hover:bg-purple-50 rounded" title="إكمال"><CheckCircle className="w-4 h-4" /></button>
                           )}
                           <button onClick={() => handleDelete(apt.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="حذف"><Trash2 className="w-4 h-4" /></button>
                         </div>
