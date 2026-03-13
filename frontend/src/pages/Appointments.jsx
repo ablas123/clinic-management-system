@@ -33,18 +33,24 @@ const Appointments = () => {
     try {
       setLoading(true);
       setError('');
+      
+      console.log('🔍 Fetching appointments, doctors, patients...');
+      
       const [aptRes, docRes, patRes] = await Promise.all([
         api.get('/appointments'),
         api.get('/doctors'),
         api.get('/patients')
       ]);
       
+      console.log('✅ Doctors:', docRes.data?.data?.doctors?.length);
+      console.log('✅ Patients:', patRes.data?.data?.patients?.length);
+      
       if (aptRes.data?.success) setAppointments(aptRes.data.data?.appointments || []);
       if (docRes.data?.success) setDoctors(docRes.data.data?.doctors || []);
       if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
     } catch (err) {
       console.error('❌ Error fetching ', err);
-      setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
+      setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
         navigate('/login');
@@ -60,13 +66,19 @@ const Appointments = () => {
     setError('');
 
     try {
+      console.log('📤 Booking appointment:', formData);
+      
       const response = await api.post('/appointments', formData);
+      
+      console.log('✅ Appointment booked:', response.data);
+      
       if (response.data?.success) {
         setAppointments([response.data.data?.appointment, ...appointments]);
         setShowForm(false);
         setFormData({ patientId: '', doctorId: '', date: '', time: '', type: 'CHECKUP', notes: '' });
       }
     } catch (err) {
+      console.error('❌ Error booking appointment:', err);
       setError(err.response?.data?.message || 'فشل حجز الموعد');
     } finally {
       setSubmitting(false);
@@ -116,11 +128,12 @@ const Appointments = () => {
     }
   };
 
-  // 🔍 تصفية البحث
-  const filteredAppointments = appointments.filter(apt =>
-    apt.patient?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    apt.doctor?.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredAppointments = appointments.filter(apt => {
+    const patientName = apt.patient?.firstName + ' ' + apt.patient?.lastName;
+    const doctorName = apt.doctor?.name;
+    return patientName?.toLowerCase().includes(search.toLowerCase()) ||
+           doctorName?.toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -158,23 +171,49 @@ const Appointments = () => {
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <select value={formData.patientId} onChange={(e) => setFormData({...formData, patientId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
+              
+              {/* ✅ قائمة المرضى: عرض الاسم الكامل */}
+              <select 
+                value={formData.patientId} 
+                onChange={(e) => setFormData({...formData, patientId: e.target.value})} 
+                className="border border-gray-300 rounded-lg px-4 py-2" 
+                required
+              >
                 <option value="">اختر المريض</option>
-                {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.firstName} {p.lastName} {p.email ? `(${p.email})` : ''}
+                  </option>
+                ))}
               </select>
-              <select value={formData.doctorId} onChange={(e) => setFormData({...formData, doctorId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
+
+              {/* ✅ قائمة الأطباء: عرض الاسم والتخصص */}
+              <select 
+                value={formData.doctorId} 
+                onChange={(e) => setFormData({...formData, doctorId: e.target.value})} 
+                className="border border-gray-300 rounded-lg px-4 py-2" 
+                required
+              >
                 <option value="">اختر الطبيب</option>
-                {doctors.map(d => <option key={d.id} value={d.id}>{d.name} - {d.specialty}</option>)}
+                {doctors.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} - {d.specialty}
+                  </option>
+                ))}
               </select>
+
               <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
               <input type="time" value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              
               <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2">
                 <option value="CHECKUP">كشف عام</option>
                 <option value="FOLLOWUP">متابعة</option>
                 <option value="CONSULTATION">استشارة</option>
                 <option value="PROCEDURE">إجراء</option>
               </select>
+              
               <input type="text" placeholder="ملاحظات (اختياري)" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" />
+              
               <div className="md:col-span-2 flex gap-3 pt-2">
                 <button type="submit" disabled={submitting} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
@@ -197,7 +236,15 @@ const Appointments = () => {
           {loading ? (
             <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-500 mb-2" /><p className="text-gray-600">جاري التحميل...</p></div>
           ) : filteredAppointments.length === 0 ? (
-            <div className="p-8 text-center text-gray-500"><Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>{search ? 'لا توجد نتائج' : 'لا توجد مواعيد'}</p></div>
+            <div className="p-8 text-center text-gray-500">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{search ? 'لا توجد نتائج' : 'لا توجد مواعيد'}</p>
+              {!search && !showForm && (
+                <button onClick={() => setShowForm(true)} className="mt-4 text-purple-600 hover:text-purple-700 font-medium">
+                  + احجز أول موعد
+                </button>
+              )}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -215,9 +262,12 @@ const Appointments = () => {
                   {filteredAppointments.map((apt, index) => (
                     <tr key={apt.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      {/* ✅ عرض الاسم الصحيح */}
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{apt.patient?.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{apt.doctor?.name}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                        {apt.patient?.firstName} {apt.patient?.lastName}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">
+                        {apt.doctor?.name}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4" />
