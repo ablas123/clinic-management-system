@@ -75,7 +75,7 @@ router.get('/', async (req, res) => {
 });
 
 // ===========================================
-// CREATE APPOINTMENT - ✅ تحويل التاريخ لـ ISO-8601
+// CREATE APPOINTMENT - ✅ استخدام SCHEDULED بدلاً من PENDING
 // ===========================================
 router.post('/', async (req, res) => {
   try {
@@ -88,7 +88,6 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ✅ تحويل التاريخ من "2026-03-13" إلى كائن تاريخ صالح لـ Prisma
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) {
       return res.status(400).json({ 
@@ -101,9 +100,9 @@ router.post('/', async (req, res) => {
       data: {
         patientId: patientId,
         doctorId: doctorId,
-        date: appointmentDate,  // ✅ نرسل كائن تاريخ، ليس نص
+        date: appointmentDate,
         reason: reason || null,
-        status: status || 'PENDING'
+        status: status || 'SCHEDULED'
       }
     });
 
@@ -136,7 +135,6 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Appointment not found' });
     }
 
-    // ✅ تحويل التاريخ إذا وُجد
     const updateData = {
       reason: reason !== undefined ? reason : existing.reason,
       status: status !== undefined ? status : existing.status
