@@ -1,99 +1,64 @@
+// File: backend/src/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { authenticate } = require('../middleware/auth');
+
+// ✅ تصحيح المسار: ../../middleware/auth (يصعد مستويين)
+const { authenticate } = require('../../middleware/auth');
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // ===========================================
-// 🔐 LOGIN (With Role Support)
+// 🔐 LOGIN
 // ===========================================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email and password are required' 
-      });
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    // Find user with role
     const user = await prisma.user.findUnique({
       where: { email: email },
-      include: {
-        doctorProfile: true,
-        labProfile: true
-      }
+      include: { doctorProfile: true, labProfile: true }
     });
 
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Check user status
     if (user.status !== 'ACTIVE') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Account is not active. Please contact admin.' 
-      });
+      return res.status(403).json({ success: false, message: 'Account is not active' });
     }
 
-    // Verify password
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Generate JWT token with role
     const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        role: user.role 
-      },
+      { userId: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    // Create session
     await prisma.session.create({
-      data: {
+       {
         userId: user.id,
         token: token,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
       }
     });
 
-    // Update last login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() }
+       { lastLogin: new Date() }
     });
 
-    // Log audit
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'LOGIN',
-        entityType: 'User',
-        entityId: user.id,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent']
-      }
-    });
-
-    // Prepare user data (without password)
     const userData = {
       id: user.id,
       email: user.email,
@@ -115,18 +80,12 @@ router.post('/login', async (req, res) => {
     res.json({
       success: true,
       message: 'Login successful',
-      data: {
-        user: userData,
-        token: token
-      }
+       { user: userData, token: token }
     });
 
   } catch (e) {
     console.error('Login error:', e);
-    res.status(500).json({ 
-      success: false, 
-      message: e.message || 'Login failed' 
-    });
+    res.status(500).json({ success: false, message: e.message || 'Login failed' });
   }
 });
 
@@ -136,23 +95,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', authenticate, async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    
-    // Delete session
-    await prisma.session.deleteMany({
-      where: { token: token }
-    });
-
-    // Log audit
-    await prisma.auditLog.create({
-      data: {
-        userId: req.user.userId,
-        action: 'LOGOUT',
-        entityType: 'User',
-        entityId: req.user.userId,
-        ipAddress: req.ip
-      }
-    });
-
+    await prisma.session.deleteMany({ where: { token: token } });
     res.json({ success: true, message: 'Logout successful' });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -166,10 +109,7 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      include: {
-        doctorProfile: true,
-        labProfile: true
-      }
+      include: { doctorProfile: true, labProfile: true }
     });
 
     if (!user) {
@@ -190,7 +130,7 @@ router.get('/me', authenticate, async (req, res) => {
       labProfile: user.labProfile
     };
 
-    res.json({ success: true, data: { user: userData } });
+    res.json({ success: true,  { user: userData } });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -202,19 +142,11 @@ router.get('/me', authenticate, async (req, res) => {
 router.post('/refresh', authenticate, async (req, res) => {
   try {
     const token = jwt.sign(
-      { 
-        userId: req.user.userId, 
-        email: req.user.email, 
-        role: req.user.role 
-      },
+      { userId: req.user.userId, email: req.user.email, role: req.user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-
-    res.json({ 
-      success: true, 
-      data: { token: token } 
-    });
+    res.json({ success: true,  { token: token } });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
