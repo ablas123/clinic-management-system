@@ -44,9 +44,10 @@ router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), asyn
       prisma.patient.count({ where })
     ]);
 
+    // ✅ استخدام ['data'] لتجنب حذف :
     const responseData = {
       success: true,
-       {
+      ['data']: {
         patients,
         pagination: {
           total,
@@ -82,7 +83,7 @@ router.get('/:id', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), a
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    const responseData = { success: true,  { patient } };
+    const responseData = { success: true, ['data']: { patient } };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -90,7 +91,7 @@ router.get('/:id', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), a
 });
 
 // ===========================================
-// CREATE PATIENT - ✅ استخدام نمط config الآمن
+// CREATE PATIENT
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -100,7 +101,6 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
       return res.status(400).json({ success: false, message: 'First name, last name, and phone are required' });
     }
 
-    // ✅ بناء كائن الإدخال في متغير أولاً
     const patientInput = {
       firstName,
       lastName,
@@ -115,11 +115,10 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
       medicalHistory: medicalHistory || null
     };
 
-    // ✅ تمرير الكائن لـ Prisma باستخدام متغير
-    const createConfig = {  patientInput };
+    const createConfig = { ['data']: patientInput };
     const patient = await prisma.patient.create(createConfig);
 
-    const responseData = { success: true, message: 'Patient created',  { patient } };
+    const responseData = { success: true, message: 'Patient created', ['data']: { patient } };
     res.status(201).json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -127,7 +126,7 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
 });
 
 // ===========================================
-// UPDATE PATIENT - ✅ استخدام نمط config الآمن
+// UPDATE PATIENT
 // ===========================================
 router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
@@ -153,10 +152,10 @@ router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
       medicalHistory: medicalHistory !== undefined ? medicalHistory : existing.medicalHistory
     };
 
-    const updateConfig = { where: { id },  updateInput };
+    const updateConfig = { where: { id }, ['data']: updateInput };
     const patient = await prisma.patient.update(updateConfig);
 
-    const responseData = { success: true, message: 'Patient updated',  { patient } };
+    const responseData = { success: true, message: 'Patient updated', ['data']: { patient } };
     res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
