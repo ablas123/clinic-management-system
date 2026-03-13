@@ -31,26 +31,16 @@ const Invoices = () => {
       setLoading(true);
       setError('');
       
-      console.log('🔍 Fetching invoices and patients...');
       const [invRes, patRes] = await Promise.all([
         api.get('/invoices'),
         api.get('/patients')
       ]);
       
-      console.log('✅ Invoices response:', invRes.data);
-      console.log('✅ Patients response:', patRes.data);
-      
-      if (invRes.data?.success) {
-        setInvoices(invRes.data.data?.invoices || []);
-        console.log('📊 Invoices count:', invRes.data.data?.invoices?.length);
-      }
-      if (patRes.data?.success) {
-        setPatients(patRes.data.data?.patients || []);
-        console.log('👥 Patients count:', patRes.data.data?.patients?.length);
-      }
+      if (invRes.data?.success) setInvoices(invRes.data.data?.invoices || []);
+      if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
     } catch (err) {
-      console.error('❌ Error fetching ', err);
-      setError(err.response?.data?.message || 'خطأ في الاتصال بالخادم');
+      console.error('Error fetching ', err);
+      setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
         navigate('/login');
@@ -66,20 +56,21 @@ const Invoices = () => {
     setError('');
 
     try {
-      console.log('📤 Creating invoice:', formData);
       const response = await api.post('/invoices', {
-        ...formData,
-        amount: parseFloat(formData.amount)
+        patientId: formData.patientId,
+        amount: parseFloat(formData.amount),
+        description: formData.description,
+        status: formData.status
       });
-      console.log('✅ Invoice created:', response.data);
-      
+
       if (response.data?.success) {
+        // ✅ الفاتورة الجديدة تحتوي على بيانات المريض كاملة
         setInvoices([response.data.data?.invoice, ...invoices]);
         setShowForm(false);
         setFormData({ patientId: '', amount: '', description: '', status: 'PENDING' });
       }
     } catch (err) {
-      console.error('❌ Error creating invoice:', err);
+      console.error('Error creating invoice:', err);
       setError(err.response?.data?.message || 'فشل إنشاء الفاتورة');
     } finally {
       setSubmitting(false);
@@ -127,10 +118,11 @@ const Invoices = () => {
     }
   };
 
-  const filteredInvoices = invoices.filter(inv =>
-    inv.patient?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    inv.description?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredInvoices = invoices.filter(inv => {
+    const patientName = (inv.patient?.firstName || '') + ' ' + (inv.patient?.lastName || '');
+    return patientName.toLowerCase().includes(search.toLowerCase()) ||
+           (inv.description || '').toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -168,12 +160,25 @@ const Invoices = () => {
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <select value={formData.patientId} onChange={(e) => setFormData({...formData, patientId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
+              
+              <select 
+                value={formData.patientId} 
+                onChange={(e) => setFormData({...formData, patientId: e.target.value})} 
+                className="border border-gray-300 rounded-lg px-4 py-2" 
+                required
+              >
                 <option value="">اختر المريض</option>
-                {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.firstName} {p.lastName}
+                  </option>
+                ))}
               </select>
+
               <input type="number" placeholder="المبلغ" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required step="0.01" min="0" />
+              
               <input type="text" placeholder="وصف الخدمة" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" required />
+              
               <div className="md:col-span-2 flex gap-3 pt-2">
                 <button type="submit" disabled={submitting} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
@@ -199,12 +204,8 @@ const Invoices = () => {
             <div className="p-8 text-center text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>{search ? 'لا توجد نتائج' : 'لا توجد فواتير'}</p>
-              {/* زر اختبار لإنشاء فاتورة سريعة */}
-              {!search && invoices.length === 0 && (
-                <button 
-                  onClick={() => setShowForm(true)} 
-                  className="mt-4 text-orange-600 hover:text-orange-700 font-medium"
-                >
+              {!search && !showForm && (
+                <button onClick={() => setShowForm(true)} className="mt-4 text-orange-600 hover:text-orange-700 font-medium">
                   + أنشئ أول فاتورة
                 </button>
               )}
@@ -227,9 +228,13 @@ const Invoices = () => {
                     <tr key={inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                        {inv.patient?.name || inv.patientId || 'غير معروف'}
+                        {inv.patient?.firstName && inv.patient?.lastName 
+                          ? inv.patient.firstName + ' ' + inv.patient.lastName 
+                          : inv.patientId || 'غير معروف'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{inv.description}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">
+                        {inv.description || '-'}
+                      </td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-800">
                         <div className="flex items-center gap-1">
                           <DollarSign className="w-4 h-4" />
@@ -237,7 +242,9 @@ const Invoices = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(inv.status)}`}>{getStatusLabel(inv.status)}</span>
+                        <span className={'inline-block px-3 py-1 rounded-full text-xs font-medium ' + getStatusColor(inv.status)}>
+                          {getStatusLabel(inv.status)}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -262,5 +269,4 @@ const Invoices = () => {
   );
 };
 
-// ✅ هذا السطر ضروري جداً!
 export default Invoices;
