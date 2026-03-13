@@ -1,11 +1,10 @@
-// File: backend/src/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// ✅ تصحيح المسار: ../../middleware/auth (يصعد مستويين)
+// ✅ مسار صحيح: ../../middleware/auth
 const { authenticate } = require('../../middleware/auth');
 
 const prisma = new PrismaClient();
@@ -77,11 +76,13 @@ router.post('/login', async (req, res) => {
       } : null
     };
 
-    res.json({
+    // ✅ استخدام متغير لتجنب مشكلة :
+    const responseData = {
       success: true,
       message: 'Login successful',
        { user: userData, token: token }
-    });
+    };
+    res.json(responseData);
 
   } catch (e) {
     console.error('Login error:', e);
@@ -96,7 +97,9 @@ router.post('/logout', authenticate, async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     await prisma.session.deleteMany({ where: { token: token } });
-    res.json({ success: true, message: 'Logout successful' });
+    
+    const responseData = { success: true, message: 'Logout successful' };
+    res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -130,7 +133,9 @@ router.get('/me', authenticate, async (req, res) => {
       labProfile: user.labProfile
     };
 
-    res.json({ success: true,  { user: userData } });
+    // ✅ استخدام متغير لتجنب مشكلة :
+    const responseData = { success: true,  { user: userData } };
+    res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -146,7 +151,10 @@ router.post('/refresh', authenticate, async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    res.json({ success: true,  { token: token } });
+    
+    // ✅ استخدام متغير لتجنب مشكلة :
+    const responseData = { success: true,  { token: token } };
+    res.json(responseData);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
