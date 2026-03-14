@@ -1,4 +1,4 @@
-// File: frontend/src/context/AuthContext.jsx - NO navigate inside
+// File: frontend/src/context/AuthContext.jsx - COMPLETE & RESPONSE HANDLING FIXED
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 
@@ -8,17 +8,24 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Helper: Extract data from response (supports both formats)
+  const extractData = (response) => {
+    return response.data?.data || response.data?.['data'] || null;
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       const savedUser = localStorage.getItem('user');
+      
       if (token && savedUser) {
         try {
           const parsedUser = JSON.parse(savedUser);
           setUser(parsedUser);
+          
           const res = await api.get('/auth/me');
           if (res.data?.success) {
-            const userData = res.data.data?.user || res.data['data']?.user;
+            const userData = extractData(res)?.user;
             if (userData) {
               setUser(userData);
               localStorage.setItem('user', JSON.stringify(userData));
@@ -38,10 +45,12 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await api.post('/auth/login', { email, password });
+      
       if (response.data?.success) {
-        const responseData = response.data.data || response.data['data'];
+        const responseData = extractData(response);
         const token = responseData?.token;
         const userData = responseData?.user;
+        
         if (token && userData) {
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(userData));
