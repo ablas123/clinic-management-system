@@ -1,246 +1,85 @@
 // ===========================================
-// 🏥 CLINIC MANAGEMENT SYSTEM - PRO SCHEMA (FIXED)
+// 🧪 LAB MODULE - HL7-inspired Schema
 // ===========================================
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// ===========================================
-// 👥 USER MANAGEMENT (RBAC)
-// ===========================================
-
-enum UserRole {
-  ADMIN
-  DOCTOR
-  LAB_TECH
-  RECEPTIONIST
-  PATIENT
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  SUSPENDED
-}
-
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  firstName     String
-  lastName      String
-  phone         String?
-  role          UserRole  @default(RECEPTIONIST)
-  status        UserStatus @default(ACTIVE)
-  avatar        String?
-  lastLogin     DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+// Lab Test Catalog (Admin-managed)
+model LabTest {
+  id              String         @id @default(cuid())
+  name            String
+  code            String         @unique
+  category        LabTestCategory
+  price           Decimal
+  unit            String?
+  referenceRange  String?
+  isFasting       Boolean        @default(false)
+  turnaroundTime  Int            // hours
+  description     String?
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   // Relations
-  doctorProfile Doctor?
-  labProfile    LabTechnician?
-  auditLogs     AuditLog[]
-  sessions      Session[]
-
-  @@index([email])
-  @@index([role])
-}
-
-// ===========================================
-// 👨‍⚕️ DOCTOR PROFILE
-// ===========================================
-
-model Doctor {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialty       String
-  licenseNumber   String   @unique
-  bio             String?
-  isAvailable     Boolean  @default(true)
-  consultationFee Decimal  @default(0)
-  maxPatientsPerDay Int    @default(20)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relations
-  appointments    Appointment[]
-  medicalRecords  MedicalRecord[]
   labRequests     LabRequest[]
+  labResults      LabResult[]
 
-  @@index([userId])
-  @@index([specialty])
+  @@index([code])
+  @@index([category])
+  @@index([isActive])
 }
 
-// ===========================================
-// 🧪 LAB TECHNICIAN PROFILE
-// ===========================================
-
-model LabTechnician {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  licenseNumber String   @unique
-  specialization String?
-  isAvailable   Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations - ✅ FIXED: added back-relation
-  labResults    LabResult[] @relation("TechnicianResults")
-
-  @@index([userId])
-}
-
-// ===========================================
-// 👤 PATIENT PROFILE
-// ===========================================
-
-model Patient {
-  id            String   @id @default(cuid())
-  firstName     String
-  lastName      String
-  email         String?
-  phone         String
-  dateOfBirth   DateTime?
-  gender        String?
-  bloodType     String?
-  address       String?
-  emergencyContact String?
-  emergencyPhone   String?
-  medicalHistory String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  appointments  Appointment[]
-  medicalRecords MedicalRecord[]
-  invoices      Invoice[]
-  labResults    LabResult[]
-
-  @@index([email])
-  @@index([phone])
-}
-
-// ===========================================
-// 📅 APPOINTMENTS (Enhanced)
-// ===========================================
-
-enum AppointmentStatus {
-  SCHEDULED
-  CONFIRMED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  NO_SHOW
-}
-
-enum AppointmentType {
-  CHECKUP
-  FOLLOWUP
-  CONSULTATION
-  PROCEDURE
-  EMERGENCY
-  LAB_FOLLOWUP
-}
-
-model Appointment {
-  id            String           @id @default(cuid())
+// Lab Request (Doctor creates)
+model LabRequest {
+  id            String            @id @default(cuid())
   patientId     String
-  patient       Patient          @relation(fields: [patientId], references: [id])
+  patient       Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctorId      String
-  doctor        Doctor           @relation(fields: [doctorId], references: [id])
-  date          DateTime
-  startTime     String?
-  endTime       String?
-  type          AppointmentType  @default(CHECKUP)
-  status        AppointmentStatus @default(SCHEDULED)
-  reason        String?
+  doctor        Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  tests         LabTest[]         // Many-to-many via junction
+  status        LabRequestStatus  @default(PENDING)
+  priority      String            @default("NORMAL") // NORMAL, URGENT, STAT
   notes         String?
-  vitalSigns    String?
-  prescription  String?
-  invoiceId     String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  requestedAt   DateTime          @default(now())
+  completedAt   DateTime?
+  
+  // Relations
+  labResults    LabResult[]       @relation("RequestResults")
 
   @@index([patientId])
   @@index([doctorId])
-  @@index([date])
   @@index([status])
 }
 
-// ===========================================
-// 💰 INVOICES & BILLING (Enhanced) - ✅ FIXED
-// ===========================================
-
-enum InvoiceStatus {
-  DRAFT
-  PENDING
-  PARTIAL
-  PAID
-  CANCELLED
-  REFUNDED
-}
-
-enum PaymentMethod {
-  CASH
-  CARD
-  INSURANCE
-  BANK_TRANSFER
-  ONLINE
-}
-
-model Invoice {
-  id            String        @id @default(cuid())
-  invoiceNumber String        @unique @default(cuid())  // ✅ FIXED: auto() → cuid()
-  patientId     String
-  patient       Patient       @relation(fields: [patientId], references: [id])
-  appointmentId String?
-  totalAmount   Decimal
-  paidAmount    Decimal       @default(0)
-  discount      Decimal       @default(0)
-  description   String
-  status        InvoiceStatus @default(PENDING)
-  paymentMethod PaymentMethod?
-  dueDate       DateTime?
-  paidAt        DateTime?
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  // Line Items
-  items         InvoiceItem[]
+// Lab Result (Lab Tech enters)
+model LabResult {
+  id              String          @id @default(cuid())
+  patientId       String
+  patient         Patient         @relation(fields: [patientId], references: [id])
+  labTestId       String
+  labTest         LabTest         @relation(fields: [labTestId], references: [id])
+  requestId       String
+  request         LabRequest      @relation(fields: [requestId], references: [id], name: "RequestResults")
+  value           String
+  unit            String?
+  referenceRange  String?
+  isAbnormal      Boolean         @default(false)
+  status          LabResultStatus @default(PENDING) // PENDING, PRELIMINARY, FINAL, VERIFIED
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  technicianId    String?
+  technician      LabTechnician?  @relation(fields: [technicianId], references: [id], name: "TechnicianResults")
+  notes           String?
+  printedAt       DateTime?
+  sentToDoctorAt  DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@index([patientId])
+  @@index([labTestId])
+  @@index([requestId])
   @@index([status])
-  @@index([invoiceNumber])
 }
 
-model InvoiceItem {
-  id          String   @id @default(cuid())
-  invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  description String
-  quantity    Int      @default(1)
-  unitPrice   Decimal
-  total       Decimal
-  type        String   // SERVICE, MEDICINE, LAB_TEST, OTHER
-  createdAt   DateTime @default(now())
-
-  @@index([invoiceId])
-}
-
-// ===========================================
-// 🧪 LAB MANAGEMENT (Enhanced) - ✅ FIXED
-// ===========================================
-
+// Enums
 enum LabTestCategory {
   BLOOD
   URINE
@@ -265,146 +104,4 @@ enum LabResultStatus {
   PRELIMINARY
   FINAL
   VERIFIED
-}
-
-model LabTest {
-  id              String         @id @default(cuid())
-  name            String
-  code            String         @unique
-  category        LabTestCategory
-  price           Decimal
-  unit            String?
-  referenceRange  String?
-  isFasting       Boolean        @default(false)
-  turnaroundTime  Int            // hours
-  description     String?
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  // Relations
-  labRequests     LabRequest[]
-  labResults      LabResult[]
-
-  @@index([code])
-  @@index([category])
-}
-
-model LabRequest {
-  id            String            @id @default(cuid())
-  patientId     String
-  doctorId      String
-  doctor        Doctor            @relation(fields: [doctorId], references: [id])
-  tests         LabTest[]
-  status        LabRequestStatus  @default(PENDING)
-  priority      String            @default("NORMAL")
-  notes         String?
-  requestedAt   DateTime          @default(now())
-  completedAt   DateTime?
-  collectedBy   String?
-  verifiedBy    String?
-
-  // Relations - ✅ FIXED: added back-relation
-  labResults    LabResult[]       @relation("RequestResults")
-
-  @@index([patientId])
-  @@index([doctorId])
-  @@index([status])
-}
-
-model LabResult {
-  id              String          @id @default(cuid())
-  patientId       String
-  patient         Patient         @relation(fields: [patientId], references: [id])
-  labTestId       String
-  labTest         LabTest         @relation(fields: [labTestId], references: [id])
-  requestId       String
-  request         LabRequest      @relation(fields: [requestId], references: [id], name: "RequestResults")  // ✅ FIXED
-  value           String
-  unit            String?
-  referenceRange  String?
-  isAbnormal      Boolean         @default(false)
-  status          LabResultStatus @default(PENDING)
-  verifiedBy      String?
-  verifiedAt      DateTime?
-  technicianId    String?
-  technician      LabTechnician?  @relation(fields: [technicianId], references: [id], name: "TechnicianResults")  // ✅ FIXED
-  notes           String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  @@index([patientId])
-  @@index([labTestId])
-  @@index([requestId])
-}
-
-// ===========================================
-// 📋 MEDICAL RECORDS
-// ===========================================
-
-model MedicalRecord {
-  id            String   @id @default(cuid())
-  patientId     String
-  patient       Patient  @relation(fields: [patientId], references: [id])
-  doctorId      String
-  doctor        Doctor   @relation(fields: [doctorId], references: [id])
-  appointmentId String?
-  diagnosis     String?
-  symptoms      String?
-  treatment     String?
-  prescription  String?
-  attachments   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([patientId])
-  @@index([doctorId])
-}
-
-// ===========================================
-// 🔐 AUDIT LOGGING
-// ===========================================
-
-enum AuditAction {
-  LOGIN
-  LOGOUT
-  CREATE
-  READ
-  UPDATE
-  DELETE
-  EXPORT
-  PRINT
-}
-
-model AuditLog {
-  id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  action      AuditAction
-  entityType  String
-  entityId    String?
-  ipAddress   String?
-  userAgent   String?
-  details     String?
-  createdAt   DateTime    @default(now())
-
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
-}
-
-// ===========================================
-// 🔑 SESSION MANAGEMENT
-// ===========================================
-
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([token])
 }
