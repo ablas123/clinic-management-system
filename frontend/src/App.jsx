@@ -1,4 +1,4 @@
-// File: frontend/src/App.jsx - COMPLETE & FINAL (All Lessons Applied)
+// File: frontend/src/App.jsx - COMPLETE & FINAL (All Routes Defined)
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -17,9 +17,10 @@ import Invoices from './pages/Invoices';
 // ===========================================
 // PAGES - LAB MODULE (HL7-inspired Workflow)
 // ===========================================
-import LabDoctor from './pages/LabDoctor';    // Doctor: Request tests only
-import LabTech from './pages/LabTech';        // Lab Tech: Full management
-import LabResults from './pages/LabResults';  // View verified results
+import LabDoctor from './pages/LabDoctor';        // Doctor: Request tests only
+import LabTech from './pages/LabTech';            // Lab Tech: Full management
+import LabResults from './pages/LabResults';      // View verified results
+import LabCatalog from './pages/LabCatalog';      // Admin/Lab Tech: Catalog management
 
 // ===========================================
 // PAGES - DOCTOR (Real Working)
@@ -106,7 +107,7 @@ const RoleRoute = ({ children, allowedRoles }) => {
 };
 
 // ===========================================
-// ✅ تعريف جميع المسارات (20 صفحة)
+// ✅ تعريف جميع المسارات (21 صفحة)
 // ===========================================
 function AppRoutes() {
   return (
@@ -150,6 +151,11 @@ function AppRoutes() {
       {/* View verified results (Doctor/Lab Tech) */}
       <Route path="/lab-results" element={
         <RoleRoute allowedRoles={['DOCTOR', 'LAB_TECH']}><LabResults /></RoleRoute>
+      } />
+      
+      {/* ✅ NEW: Catalog management (Admin/Lab Tech) */}
+      <Route path="/lab-catalog" element={
+        <RoleRoute allowedRoles={['ADMIN', 'LAB_TECH']}><LabCatalog /></RoleRoute>
       } />
 
       {/* ===========================================
