@@ -1,4 +1,4 @@
-// File: frontend/src/App.jsx - COMPLETE & FINAL (All Routes)
+// File: frontend/src/App.jsx - COMPLETE & FINAL (All Lessons Applied)
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -13,14 +13,19 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Appointments from './pages/Appointments';
 import Invoices from './pages/Invoices';
-import Lab from './pages/Lab';
+
+// ===========================================
+// PAGES - LAB MODULE (HL7-inspired Workflow)
+// ===========================================
+import LabDoctor from './pages/LabDoctor';    // Doctor: Request tests only
+import LabTech from './pages/LabTech';        // Lab Tech: Full management
+import LabResults from './pages/LabResults';  // View verified results
 
 // ===========================================
 // PAGES - DOCTOR (Real Working)
 // ===========================================
 import MyPatients from './pages/MyPatients';
 import MyAppointments from './pages/MyAppointments';
-import LabResults from './pages/LabResults';
 import MedicalRecords from './pages/MedicalRecords';
 
 // ===========================================
@@ -32,35 +37,8 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
 // ===========================================
-// PAGES - LAB TECH (Placeholder - Can be enhanced)
+// PAGES - PLACEHOLDER (Can be enhanced later)
 // ===========================================
-const LabTests = () => (
-  <div className="min-h-screen bg-gray-50" dir="rtl">
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">🧪 فحوصات المختبر</h1>
-      <p className="text-gray-600">هذه الصفحة متاحة لفنيي المختبر - يمكن تطويرها لاحقاً</p>
-    </div>
-  </div>
-);
-
-const LabRequests = () => (
-  <div className="min-h-screen bg-gray-50" dir="rtl">
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">📝 طلبات المختبر</h1>
-      <p className="text-gray-600">هذه الصفحة متاحة لفنيي المختبر والأطباء - يمكن تطويرها لاحقاً</p>
-    </div>
-  </div>
-);
-
-const LabReports = () => (
-  <div className="min-h-screen bg-gray-50" dir="rtl">
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">🖨️ تقارير المختبر</h1>
-      <p className="text-gray-600">هذه الصفحة متاحة لفنيي المختبر - يمكن تطويرها لاحقاً</p>
-    </div>
-  </div>
-);
-
 const Confirmations = () => (
   <div className="min-h-screen bg-gray-50" dir="rtl">
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -128,7 +106,7 @@ const RoleRoute = ({ children, allowedRoles }) => {
 };
 
 // ===========================================
-// ✅ تعريف جميع المسارات (18 صفحة)
+// ✅ تعريف جميع المسارات (20 صفحة)
 // ===========================================
 function AppRoutes() {
   return (
@@ -155,9 +133,23 @@ function AppRoutes() {
       <Route path="/invoices" element={
         <ProtectedRoute><Invoices /></ProtectedRoute>
       } />
-      
+
+      {/* ===========================================
+          LAB MODULE (HL7-inspired Workflow)
+      =========================================== */}
+      {/* Doctor: Request lab tests only */}
       <Route path="/lab" element={
-        <ProtectedRoute><Lab /></ProtectedRoute>
+        <RoleRoute allowedRoles={['DOCTOR']}><LabDoctor /></RoleRoute>
+      } />
+      
+      {/* Lab Tech: Full lab management */}
+      <Route path="/lab-tech" element={
+        <RoleRoute allowedRoles={['LAB_TECH']}><LabTech /></RoleRoute>
+      } />
+      
+      {/* View verified results (Doctor/Lab Tech) */}
+      <Route path="/lab-results" element={
+        <RoleRoute allowedRoles={['DOCTOR', 'LAB_TECH']}><LabResults /></RoleRoute>
       } />
 
       {/* ===========================================
@@ -171,27 +163,8 @@ function AppRoutes() {
         <RoleRoute allowedRoles={['DOCTOR']}><MyAppointments /></RoleRoute>
       } />
       
-      <Route path="/lab-results" element={
-        <RoleRoute allowedRoles={['DOCTOR', 'LAB_TECH']}><LabResults /></RoleRoute>
-      } />
-      
       <Route path="/medical-records" element={
         <RoleRoute allowedRoles={['DOCTOR']}><MedicalRecords /></RoleRoute>
-      } />
-
-      {/* ===========================================
-          LAB TECH ROUTES
-      =========================================== */}
-      <Route path="/lab-tests" element={
-        <RoleRoute allowedRoles={['LAB_TECH']}><LabTests /></RoleRoute>
-      } />
-      
-      <Route path="/lab-requests" element={
-        <RoleRoute allowedRoles={['LAB_TECH', 'DOCTOR']}><LabRequests /></RoleRoute>
-      } />
-      
-      <Route path="/lab-reports" element={
-        <RoleRoute allowedRoles={['LAB_TECH']}><LabReports /></RoleRoute>
       } />
 
       {/* ===========================================
