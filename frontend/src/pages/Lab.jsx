@@ -1,44 +1,49 @@
+// File: frontend/src/pages/Lab.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { TestTube, Plus, Search, ArrowLeft, Loader2, AlertCircle, X } from 'lucide-react';
+import { TestTube, Plus, Search, ArrowLeft, Loader2, AlertCircle, X, Clipboard, FileCheck, Printer } from 'lucide-react';
 
 const Lab = () => {
-  const { logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
   
   const [labTests, setLabTests] = useState([]);
+  const [labRequests, setLabRequests] = useState([]);
+  const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState('tests');
   const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    category: 'Blood',
-    price: '',
-    unit: '',
-    referenceRange: '',
-    isFasting: false,
-    turnaroundTime: 24
+    patientId: '',
+    testIds: [],
+    priority: 'NORMAL',
+    notes: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchLabTests();
+    fetchData();
   }, []);
 
-  const fetchLabTests = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError('');
-      const response = await api.get('/lab/tests');
-      if (response.data?.success) {
-        setLabTests(response.data.data?.labTests || []);
-      }
+      
+      const [testsRes, requestsRes, patientsRes] = await Promise.all([
+        api.get('/lab/tests'),
+        hasRole('DOCTOR') || hasRole('LAB_TECH') ? api.get('/lab/requests') : Promise.resolve({ data: { success: true, ['data']: { requests: [] } } }),
+        hasRole('DOCTOR') ? api.get('/patients') : Promise.resolve({ data: { success: true, ['data']: { patients: [] } } })
+      ]);
+      
+      if (testsRes.data?.success) setLabTests(testsRes.data['data']?.labTests || []);
+      if (requestsRes.data?.success) setLabRequests(requestsRes.data['data']?.requests || []);
+      if (patientsRes.data?.success) setPatients(patientsRes.data['data']?.patients || []);
     } catch (err) {
-      console.error('Error fetching lab tests:', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
@@ -55,46 +60,43 @@ const Lab = () => {
     setError('');
 
     try {
-      const response = await api.post('/lab/tests', {
-        name: formData.name,
-        code: formData.code,
-        category: formData.category,
-        price: parseFloat(formData.price),
-        unit: formData.unit,
-        referenceRange: formData.referenceRange,
-        isFasting: formData.isFasting,
-        turnaroundTime: parseInt(formData.turnaroundTime)
+      const response = await api.post('/lab/requests', {
+        patientId: formData.patientId,
+        testIds: formData.testIds,
+        priority: formData.priority,
+        notes: formData.notes
       });
 
       if (response.data?.success) {
-        setLabTests([response.data.data?.labTest, ...labTests]);
+        setLabRequests([response.data['data']?.labRequest, ...labRequests]);
         setShowForm(false);
-        setFormData({ name: '', code: '', category: 'Blood', price: '', unit: '', referenceRange: '', isFasting: false, turnaroundTime: 24 });
+        setFormData({ patientId: '', testIds: [], priority: 'NORMAL', notes: '' });
       }
     } catch (err) {
-      console.error('Error creating lab test:', err);
-      setError(err.response?.data?.message || 'فشل إضافة الفحص');
+      setError(err.response?.data?.message || 'فشل طلب الفحص');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الفحص؟')) return;
+  const handleResultUpdate = async (resultId, value, isAbnormal, status) => {
     try {
-      const response = await api.delete(`/lab/tests/${id}`);
+      const response = await api.patch(`/lab/results/${resultId}`, {
+        value,
+        isAbnormal,
+        status
+      });
       if (response.data?.success) {
-        setLabTests(labTests.filter(t => t.id !== id));
+        fetchData();
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل حذف الفحص');
+      setError(err.response?.data?.message || 'فشل تحديث النتيجة');
     }
   };
 
   const filteredTests = labTests.filter(test =>
     test.name?.toLowerCase().includes(search.toLowerCase()) ||
-    test.code?.toLowerCase().includes(search.toLowerCase()) ||
-    test.category?.toLowerCase().includes(search.toLowerCase())
+    test.code?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -110,10 +112,12 @@ const Lab = () => {
               <h1 className="text-xl font-bold text-gray-800">إدارة المختبر</h1>
             </div>
           </div>
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">إضافة فحص</span>
-          </button>
+          {hasRole('DOCTOR') && (
+            <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline">طلب فحص</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -126,33 +130,67 @@ const Lab = () => {
           </div>
         )}
 
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b">
+          <button onClick={() => setActiveTab('tests')} className={`px-4 py-2 ${activeTab === 'tests' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-600'}`}>الفحوصات المتاحة</button>
+          {hasRole(['DOCTOR', 'LAB_TECH']) && (
+            <button onClick={() => setActiveTab('requests')} className={`px-4 py-2 ${activeTab === 'requests' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-600'}`}>الطلبات</button>
+          )}
+        </div>
+
         {showForm && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">إضافة فحص جديد</h2>
+              <h2 className="text-lg font-bold text-gray-800">طلب فحص جديد</h2>
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" placeholder="اسم الفحص *" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="text" placeholder="الرمز (Code) *" value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2">
-                <option value="Blood">دم</option>
-                <option value="Urine">بول</option>
-                <option value="X-Ray">أشعة</option>
-                <option value="Other">أخرى</option>
+              <select 
+                value={formData.patientId} 
+                onChange={(e) => setFormData({...formData, patientId: e.target.value})} 
+                className="border border-gray-300 rounded-lg px-4 py-2" 
+                required
+              >
+                <option value="">اختر المريض</option>
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                ))}
               </select>
-              <input type="number" placeholder="السعر *" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required step="0.01" min="0" />
-              <input type="text" placeholder="الوحدة (مثال: mg/dL)" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" />
-              <input type="text" placeholder="المدى الطبيعي" value={formData.referenceRange} onChange={(e) => setFormData({...formData, referenceRange: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" />
-              <select value={formData.isFasting} onChange={(e) => setFormData({...formData, isFasting: e.target.value === 'true'})} className="border border-gray-300 rounded-lg px-4 py-2">
-                <option value="false">لا يحتاج صيام</option>
-                <option value="true">يتطلب صيام</option>
+
+              <select 
+                value={formData.priority} 
+                onChange={(e) => setFormData({...formData, priority: e.target.value})} 
+                className="border border-gray-300 rounded-lg px-4 py-2"
+              >
+                <option value="NORMAL">عادي</option>
+                <option value="URGENT">عاجل</option>
+                <option value="STAT">طارئ جداً</option>
               </select>
-              <input type="number" placeholder="وقت الانتظار (ساعات)" value={formData.turnaroundTime} onChange={(e) => setFormData({...formData, turnaroundTime: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required min="1" />
+
+              <div className="md:col-span-2">
+                <p className="text-sm font-medium text-gray-700 mb-2">اختر الفحوصات:</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {labTests.map(test => (
+                    <label key={test.id} className="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input type="checkbox" value={test.id} onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({...formData, testIds: [...formData.testIds, test.id]});
+                        } else {
+                          setFormData({...formData, testIds: formData.testIds.filter(id => id !== test.id)});
+                        }
+                      }} className="w-4 h-4" />
+                      <span className="text-sm">{test.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <textarea placeholder="ملاحظات إضافية" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" rows="2" />
+              
               <div className="md:col-span-2 flex gap-3 pt-2">
-                <button type="submit" disabled={submitting} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                  {submitting ? 'جاري...' : 'حفظ'}
+                <button type="submit" disabled={submitting || formData.testIds.length === 0} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Clipboard className="w-5 h-5" />}
+                  {submitting ? 'جاري...' : 'طلب الفحص'}
                 </button>
                 <button type="button" onClick={() => setShowForm(false)} className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg">إلغاء</button>
               </div>
@@ -170,52 +208,87 @@ const Lab = () => {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-red-500 mb-2" /><p className="text-gray-600">جاري التحميل...</p></div>
-          ) : filteredTests.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <TestTube className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>{search ? 'لا توجد نتائج' : 'لا توجد فحوصات'}</p>
-              {!search && !showForm && (
-                <button onClick={() => setShowForm(true)} className="mt-4 text-red-600 hover:text-red-700 font-medium">
-                  + أضف أول فحص
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">#</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">اسم الفحص</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">الرمز</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">القسم</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">السعر</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">التفاصيل</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredTests.map((test, index) => (
-                    <tr key={test.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{test.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell font-mono">{test.code}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{test.category}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-gray-800">{test.price?.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-2 text-xs">
-                          {test.isFasting && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">صيام</span>}
-                          <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">{test.turnaroundTime} ساعة</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button onClick={() => handleDelete(test.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="حذف"><X className="w-4 h-4" /></button>
-                      </td>
+          ) : activeTab === 'tests' ? (
+            filteredTests.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <TestTube className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>لا توجد فحوصات</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">#</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">اسم الفحص</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">الرمز</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">القسم</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">السعر</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">التفاصيل</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredTests.map((test, index) => (
+                      <tr key={test.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800">{test.name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell font-mono">{test.code}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{test.category}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-800">{test.price?.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2 text-xs">
+                            {test.isFasting && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">صيام</span>}
+                            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">{test.turnaroundTime} ساعة</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : (
+            labRequests.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <Clipboard className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>لا توجد طلبات</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">#</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المريض</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">الأولوية</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">الحالة</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {labRequests.map((req, index) => (
+                      <tr key={req.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800">{req.patient?.firstName} {req.patient?.lastName}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 rounded text-xs ${req.priority === 'STAT' ? 'bg-red-100 text-red-700' : req.priority === 'URGENT' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {req.priority}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${req.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {req.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded" title="عرض"><FileCheck className="w-4 h-4" /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </div>
       </main>
