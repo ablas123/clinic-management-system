@@ -1,21 +1,16 @@
-// File: frontend/src/App.jsx - تأكد من هذا الجزء
-import { Routes, Route, Navigate } from 'react-router-dom';
+// File: frontend/src/App.jsx - FIXED ORDER
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 // ... استيراد باقي الصفحات
 
-// ✅ مكون حماية المسارات
+// ✅ مكون الحماية
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>;
-  }
-  
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center">جاري...</div>;
+  if (!user) return <Navigate to="/login" replace />;
   
   return children;
 };
@@ -24,12 +19,13 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      
       <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
+        <ProtectedRoute><Dashboard /></ProtectedRoute>
       } />
-      {/* ... باقي المسارات المحمية */}
+      
+      {/* ... باقي المسارات */}
+      
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
@@ -37,9 +33,12 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    // ✅ Router أولاً، ثم AuthProvider
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
