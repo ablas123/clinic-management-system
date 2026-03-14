@@ -1,11 +1,12 @@
+// File: frontend/src/pages/Appointments.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Calendar, Plus, Trash2, Search, ArrowLeft, Loader2, AlertCircle, X, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Plus, Trash2, Search, ArrowLeft, Loader2, AlertCircle, X, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 const Appointments = () => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   
   const [appointments, setAppointments] = useState([]);
@@ -19,8 +20,9 @@ const Appointments = () => {
     patientId: '',
     doctorId: '',
     date: '',
-    reason: '',
-    status: 'SCHEDULED'
+    startTime: '',
+    type: 'CHECKUP',
+    reason: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,11 +41,10 @@ const Appointments = () => {
         api.get('/patients')
       ]);
       
-      if (aptRes.data?.success) setAppointments(aptRes.data.data?.appointments || []);
-      if (docRes.data?.success) setDoctors(docRes.data.data?.doctors || []);
-      if (patRes.data?.success) setPatients(patRes.data.data?.patients || []);
+      if (aptRes.data?.success) setAppointments(aptRes.data['data']?.appointments || []);
+      if (docRes.data?.success) setDoctors(docRes.data['data']?.doctors || []);
+      if (patRes.data?.success) setPatients(patRes.data['data']?.patients || []);
     } catch (err) {
-      console.error('Error fetching ', err);
       setError(err.response?.data?.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
@@ -64,17 +65,17 @@ const Appointments = () => {
         patientId: formData.patientId,
         doctorId: formData.doctorId,
         date: formData.date,
-        reason: formData.reason,
-        status: formData.status
+        startTime: formData.startTime,
+        type: formData.type,
+        reason: formData.reason
       });
 
       if (response.data?.success) {
-        setAppointments([response.data.data?.appointment, ...appointments]);
+        setAppointments([response.data['data']?.appointment, ...appointments]);
         setShowForm(false);
-        setFormData({ patientId: '', doctorId: '', date: '', reason: '', status: 'SCHEDULED' });
+        setFormData({ patientId: '', doctorId: '', date: '', startTime: '', type: 'CHECKUP', reason: '' });
       }
     } catch (err) {
-      console.error('Error booking appointment:', err);
       setError(err.response?.data?.message || 'فشل حجز الموعد');
     } finally {
       setSubmitting(false);
@@ -84,10 +85,8 @@ const Appointments = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من إلغاء هذا الموعد؟')) return;
     try {
-      const response = await api.delete(`/appointments/${id}`);
-      if (response.data?.success) {
-        setAppointments(appointments.filter(a => a.id !== id));
-      }
+      await api.delete(`/appointments/${id}`);
+      setAppointments(appointments.filter(a => a.id !== id));
     } catch (err) {
       setError(err.response?.data?.message || 'فشل إلغاء الموعد');
     }
@@ -95,42 +94,42 @@ const Appointments = () => {
 
   const updateStatus = async (id, status) => {
     try {
-      const response = await api.patch(`/appointments/${id}/status`, { status });
-      if (response.data?.success) {
-        setAppointments(appointments.map(a => a.id === id ? { ...a, status } : a));
-      }
+      await api.patch(`/appointments/${id}/status`, { status });
+      setAppointments(appointments.map(a => a.id === id ? { ...a, status } : a));
     } catch (err) {
       setError(err.response?.data?.message || 'فشل تحديث الحالة');
     }
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'SCHEDULED': return 'bg-blue-100 text-blue-700';
-      case 'CONFIRMED': return 'bg-green-100 text-green-700';
-      case 'CANCELLED': return 'bg-red-100 text-red-700';
-      case 'COMPLETED': return 'bg-purple-100 text-purple-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
+    const colors = {
+      SCHEDULED: 'bg-blue-100 text-blue-700',
+      CONFIRMED: 'bg-green-100 text-green-700',
+      IN_PROGRESS: 'bg-yellow-100 text-yellow-700',
+      COMPLETED: 'bg-purple-100 text-purple-700',
+      CANCELLED: 'bg-red-100 text-red-700',
+      NO_SHOW: 'bg-gray-100 text-gray-700'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
   const getStatusLabel = (status) => {
-    switch (status) {
-      case 'SCHEDULED': return 'مجدول';
-      case 'CONFIRMED': return 'مؤكد';
-      case 'CANCELLED': return 'ملغي';
-      case 'COMPLETED': return 'مكتمل';
-      default: return status;
-    }
+    const labels = {
+      SCHEDULED: 'مجدول',
+      CONFIRMED: 'مؤكد',
+      IN_PROGRESS: 'قيد التنفيذ',
+      COMPLETED: 'مكتمل',
+      CANCELLED: 'ملغي',
+      NO_SHOW: 'غير حاضر'
+    };
+    return labels[status] || status;
   };
 
   const filteredAppointments = appointments.filter(apt => {
-    const patientName = (apt.patient?.firstName || '') + ' ' + (apt.patient?.lastName || '');
-    const doctorName = apt.doctor?.name || '';
+    const patientName = `${apt.patient?.firstName || ''} ${apt.patient?.lastName || ''}`.toLowerCase();
+    const doctorName = `${apt.doctor?.user?.firstName || ''} ${apt.doctor?.user?.lastName || ''}`.toLowerCase();
     const searchLower = search.toLowerCase();
-    return patientName.toLowerCase().includes(searchLower) ||
-           doctorName.toLowerCase().includes(searchLower) ||
-           (apt.reason || '').toLowerCase().includes(searchLower);
+    return patientName.includes(searchLower) || doctorName.includes(searchLower) || (apt.reason || '').toLowerCase().includes(searchLower);
   });
 
   return (
@@ -146,10 +145,12 @@ const Appointments = () => {
               <h1 className="text-xl font-bold text-gray-800">إدارة المواعيد</h1>
             </div>
           </div>
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">حجز موعد</span>
-          </button>
+          {user?.role !== 'DOCTOR' && (
+            <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline">حجز موعد</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -169,7 +170,6 @@ const Appointments = () => {
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
               <select 
                 value={formData.patientId} 
                 onChange={(e) => setFormData({...formData, patientId: e.target.value})} 
@@ -178,9 +178,7 @@ const Appointments = () => {
               >
                 <option value="">اختر المريض</option>
                 {patients.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.firstName} {p.lastName}
-                  </option>
+                  <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
                 ))}
               </select>
 
@@ -192,15 +190,20 @@ const Appointments = () => {
               >
                 <option value="">اختر الطبيب</option>
                 {doctors.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} - {d.specialty}
-                  </option>
+                  <option key={d.id} value={d.id}>{d.user?.firstName} {d.user?.lastName} - {d.specialty}</option>
                 ))}
               </select>
 
               <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              
-              <input type="text" placeholder="سبب الموعد (اختياري)" value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" />
+              <input type="time" value={formData.startTime} onChange={(e) => setFormData({...formData, startTime: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" />
+              <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2">
+                <option value="CHECKUP">كشف عام</option>
+                <option value="FOLLOWUP">متابعة</option>
+                <option value="CONSULTATION">استشارة</option>
+                <option value="PROCEDURE">إجراء</option>
+                <option value="EMERGENCY">طارئ</option>
+              </select>
+              <input type="text" placeholder="سبب الموعد" value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 md:col-span-2" />
               
               <div className="md:col-span-2 flex gap-3 pt-2">
                 <button type="submit" disabled={submitting} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
@@ -227,11 +230,6 @@ const Appointments = () => {
             <div className="p-8 text-center text-gray-500">
               <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>{search ? 'لا توجد نتائج' : 'لا توجد مواعيد'}</p>
-              {!search && !showForm && (
-                <button onClick={() => setShowForm(true)} className="mt-4 text-purple-600 hover:text-purple-700 font-medium">
-                  + احجز أول موعد
-                </button>
-              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -242,7 +240,7 @@ const Appointments = () => {
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المريض</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">الطبيب</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">التاريخ</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">السبب</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">النوع</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">الحالة</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
                   </tr>
@@ -251,22 +249,12 @@ const Appointments = () => {
                   {filteredAppointments.map((apt, index) => (
                     <tr key={apt.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                        {apt.patient?.firstName && apt.patient?.lastName 
-                          ? apt.patient.firstName + ' ' + apt.patient.lastName 
-                          : apt.patientId || 'غير معروف'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">
-                        {apt.doctor?.name || 'غير معروف'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {apt.date ? new Date(apt.date).toLocaleDateString('ar-EG') : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">
-                        {apt.reason || '-'}
-                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{apt.patient?.firstName} {apt.patient?.lastName}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{apt.doctor?.user?.firstName} {apt.doctor?.user?.lastName}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{apt.date ? new Date(apt.date).toLocaleDateString('ar-EG') : '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{apt.type}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={'inline-block px-3 py-1 rounded-full text-xs font-medium ' + getStatusColor(apt.status)}>{getStatusLabel(apt.status)}</span>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>{getStatusLabel(apt.status)}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -275,9 +263,6 @@ const Appointments = () => {
                           )}
                           {apt.status !== 'CANCELLED' && apt.status !== 'COMPLETED' && (
                             <button onClick={() => updateStatus(apt.id, 'CANCELLED')} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="إلغاء"><XCircle className="w-4 h-4" /></button>
-                          )}
-                          {apt.status === 'CONFIRMED' && (
-                            <button onClick={() => updateStatus(apt.id, 'COMPLETED')} className="text-purple-600 hover:text-purple-700 p-2 hover:bg-purple-50 rounded" title="إكمال"><CheckCircle className="w-4 h-4" /></button>
                           )}
                           <button onClick={() => handleDelete(apt.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="حذف"><Trash2 className="w-4 h-4" /></button>
                         </div>
