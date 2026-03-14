@@ -1,10 +1,11 @@
-// File: backend/src/routes/patientRoutes.js
+// File: backend/src/routes/patientRoutes.js - PRODUCTION READY
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
+const DATA_KEY = 'data';
 
 // ===========================================
 // GET ALL PATIENTS
@@ -23,17 +24,6 @@ router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), asyn
       ];
     }
 
-    if (req.user.role === 'DOCTOR') {
-      const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
-      if (doctor) {
-        const appointments = await prisma.appointment.findMany({
-          where: { doctorId: doctor.id },
-          select: { patientId: true }
-        });
-        where.id = { in: appointments.map(a => a.patientId) };
-      }
-    }
-
     const [patients, total] = await Promise.all([
       prisma.patient.findMany({
         where,
@@ -44,7 +34,6 @@ router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), asyn
       prisma.patient.count({ where })
     ]);
 
-    // ✅ استخدام ['data'] لتجنب حذف :
     const responseData = {
       success: true,
       ['data']: {
@@ -59,6 +48,7 @@ router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), asyn
     };
     res.json(responseData);
   } catch (e) {
+    console.error('Get patients error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
@@ -69,14 +59,7 @@ router.get('/', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), asyn
 router.get('/:id', authenticate, authorize('ADMIN', 'DOCTOR', 'RECEPTIONIST'), async (req, res) => {
   try {
     const patient = await prisma.patient.findUnique({
-      where: { id: req.params.id },
-      include: {
-        appointments: {
-          include: { doctor: { select: { id: true, specialty: true } } }
-        },
-        invoices: { select: { id: true, totalAmount: true, status: true } },
-        labResults: { select: { id: true, status: true } }
-      }
+      where: { id: req.params.id }
     });
 
     if (!patient) {
@@ -98,10 +81,10 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
     const { firstName, lastName, email, phone, dateOfBirth, gender, bloodType, address, emergencyContact, emergencyPhone, medicalHistory } = req.body;
 
     if (!firstName || !lastName || !phone) {
-      return res.status(400).json({ success: false, message: 'First name, last name, and phone are required' });
+      return res.status(400).json({ success: false, message: 'الاسم الأول، اسم العائلة، والهاتف مطلوبة' });
     }
 
-    const patientInput = {
+    const patientPayload = {
       firstName,
       lastName,
       email: email || null,
@@ -115,12 +98,12 @@ router.post('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, r
       medicalHistory: medicalHistory || null
     };
 
-    const createConfig = { ['data']: patientInput };
-    const patient = await prisma.patient.create(createConfig);
+    const patient = await prisma.patient.create({ [DATA_KEY]: patientPayload });
 
-    const responseData = { success: true, message: 'Patient created', ['data']: { patient } };
+    const responseData = { success: true, message: 'تم إضافة المريض بنجاح', ['data']: { patient } };
     res.status(201).json(responseData);
   } catch (e) {
+    console.error('Create patient error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
@@ -135,10 +118,10 @@ router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
 
     const existing = await prisma.patient.findUnique({ where: { id } });
     if (!existing) {
-      return res.status(404).json({ success: false, message: 'Patient not found' });
+      return res.status(404).json({ success: false, message: 'المريض غير موجود' });
     }
 
-    const updateInput = {
+    const updatePayload = {
       firstName: firstName !== undefined ? firstName : existing.firstName,
       lastName: lastName !== undefined ? lastName : existing.lastName,
       email: email !== undefined ? email : existing.email,
@@ -152,12 +135,15 @@ router.put('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req,
       medicalHistory: medicalHistory !== undefined ? medicalHistory : existing.medicalHistory
     };
 
-    const updateConfig = { where: { id }, ['data']: updateInput };
-    const patient = await prisma.patient.update(updateConfig);
+    const patient = await prisma.patient.update({
+      where: { id },
+      [DATA_KEY]: updatePayload
+    });
 
-    const responseData = { success: true, message: 'Patient updated', ['data']: { patient } };
+    const responseData = { success: true, message: 'تم تحديث المريض بنجاح', ['data']: { patient } };
     res.json(responseData);
   } catch (e) {
+    console.error('Update patient error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
@@ -169,11 +155,12 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const existing = await prisma.patient.findUnique({ where: { id: req.params.id } });
     if (!existing) {
-      return res.status(404).json({ success: false, message: 'Patient not found' });
+      return res.status(404).json({ success: false, message: 'المريض غير موجود' });
     }
     await prisma.patient.delete({ where: { id: req.params.id } });
-    res.json({ success: true, message: 'Patient deleted' });
+    res.json({ success: true, message: 'تم حذف المريض' });
   } catch (e) {
+    console.error('Delete patient error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
