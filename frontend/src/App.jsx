@@ -1,4 +1,4 @@
-// File: frontend/src/App.jsx - COMPLETE & ROUTER FIXED
+// File: frontend/src/App.jsx - UPDATED with medical-records route
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -13,7 +13,7 @@ import LabResults from './pages/LabResults';
 import LabCatalog from './pages/LabCatalog';
 import MyPatients from './pages/MyPatients';
 import MyAppointments from './pages/MyAppointments';
-import MedicalRecords from './pages/MedicalRecords';
+import MedicalRecords from './pages/MedicalRecords'; // ✅ NEW
 import Patients from './pages/Patients';
 import Doctors from './pages/Doctors';
 import Reports from './pages/Reports';
@@ -57,7 +57,7 @@ function AppRoutes() {
       {/* Doctor */}
       <Route path="/my-patients" element={<RoleRoute allowedRoles={['DOCTOR']}><MyPatients /></RoleRoute>} />
       <Route path="/my-appointments" element={<RoleRoute allowedRoles={['DOCTOR']}><MyAppointments /></RoleRoute>} />
-      <Route path="/medical-records" element={<RoleRoute allowedRoles={['DOCTOR']}><MedicalRecords /></RoleRoute>} />
+      <Route path="/medical-records" element={<RoleRoute allowedRoles={['DOCTOR']}><MedicalRecords /></RoleRoute>} /> {/* ✅ NEW */}
       
       {/* Admin/Reception */}
       <Route path="/patients" element={<RoleRoute allowedRoles={['ADMIN', 'RECEPTIONIST']}><Patients /></RoleRoute>} />
@@ -72,7 +72,7 @@ function AppRoutes() {
   );
 }
 
-// ✅ Main App - BrowserRouter OUTSIDE AuthProvider
+// Main App - BrowserRouter OUTSIDE AuthProvider
 function App() {
   return (
     <BrowserRouter>
