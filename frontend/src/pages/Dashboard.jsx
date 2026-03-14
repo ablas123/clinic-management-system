@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Dashboard.jsx
+// File: frontend/src/pages/Dashboard.jsx - FIXED BUTTONS
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Users, Stethoscope, Calendar, FileText, TestTube, Clipboard, DollarSign, Activity, Settings, FileCheck, Printer, Phone } from 'lucide-react';
@@ -12,7 +12,6 @@ const Dashboard = () => {
     navigate('/login');
   };
 
-  // ✅ قوائم حسب الدور - نفس هيكلية الباكند
   const getMenuItems = () => {
     switch (user?.role) {
       case 'ADMIN':
@@ -25,7 +24,6 @@ const Dashboard = () => {
           { icon: Activity, title: 'التقارير', color: 'bg-indigo-500', path: '/reports', desc: 'التقارير والإحصائيات' },
           { icon: Settings, title: 'الإعدادات', color: 'bg-gray-500', path: '/settings', desc: 'إعدادات النظام' },
         ];
-      
       case 'DOCTOR':
         return [
           { icon: Users, title: 'مرضاي', color: 'bg-blue-500', path: '/my-patients', desc: 'ملفات مرضاي' },
@@ -33,7 +31,6 @@ const Dashboard = () => {
           { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab-results', desc: 'نتائج المختبر' },
           { icon: Clipboard, title: 'السجلات', color: 'bg-orange-500', path: '/medical-records', desc: 'السجلات الطبية' },
         ];
-      
       case 'LAB_TECH':
         return [
           { icon: TestTube, title: 'الفحوصات', color: 'bg-red-500', path: '/lab-tests', desc: 'قائمة الفحوصات' },
@@ -41,7 +38,6 @@ const Dashboard = () => {
           { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab-results', desc: 'إدخال النتائج' },
           { icon: Printer, title: 'التقارير', color: 'bg-blue-500', path: '/lab-reports', desc: 'طباعة التقارير' },
         ];
-      
       case 'RECEPTIONIST':
         return [
           { icon: Users, title: 'المرضى', color: 'bg-blue-500', path: '/patients', desc: 'تسجيل المرضى' },
@@ -49,7 +45,6 @@ const Dashboard = () => {
           { icon: DollarSign, title: 'الفواتير', color: 'bg-orange-500', path: '/invoices', desc: 'الفواتير والدفع' },
           { icon: Phone, title: 'التأكيدات', color: 'bg-green-500', path: '/confirmations', desc: 'تأكيد المواعيد' },
         ];
-      
       default:
         return [];
     }
@@ -57,7 +52,6 @@ const Dashboard = () => {
 
   const menuItems = getMenuItems();
 
-  // ✅ إحصائيات حسب الدور
   const getStats = () => {
     switch (user?.role) {
       case 'ADMIN':
@@ -97,7 +91,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
-      {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -112,7 +105,6 @@ const Dashboard = () => {
               </p>
             </div>
           </div>
-          
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-gray-600">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -120,18 +112,10 @@ const Dashboard = () => {
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-gray-500">
-                  {user?.role === 'ADMIN' && 'مدير النظام'}
-                  {user?.role === 'DOCTOR' && 'طبيب'}
-                  {user?.role === 'LAB_TECH' && 'فني مختبر'}
-                  {user?.role === 'RECEPTIONIST' && 'موظف استقبال'}
-                </p>
+                <p className="text-xs text-gray-500">{user?.role}</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors"
-            >
+            <button onClick={handleLogout} className="flex items-center gap-2 text-red-600 hover:text-red-700" type="button">
               <LogOut className="w-5 h-5" />
               <span className="hidden sm:inline">خروج</span>
             </button>
@@ -140,7 +124,6 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Welcome Banner */}
         <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-8 text-white mb-8">
           <h2 className="text-2xl font-bold mb-2">مرحباً بك، {user?.firstName}! 👋</h2>
           <p className="opacity-90">
@@ -151,7 +134,6 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, index) => (
             <div key={index} className="bg-white rounded-xl p-6 shadow-sm">
@@ -164,12 +146,12 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Menu Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {menuItems.map((item) => (
             <button
               key={item.title}
               onClick={() => navigate(item.path)}
+              type="button"
               className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 text-center group"
             >
               <div className={`${item.color} w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
