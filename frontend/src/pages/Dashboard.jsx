@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Dashboard.jsx - COMPLETE & FINAL (All Buttons Fixed)
+// File: frontend/src/pages/Dashboard.jsx - COMPLETE & PRODUCTION READY
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Users, Stethoscope, Calendar, FileText, TestTube, Clipboard, DollarSign, Activity, Settings, FileCheck, Printer, Phone } from 'lucide-react';
@@ -6,11 +6,7 @@ import { LogOut, User, Users, Stethoscope, Calendar, FileText, TestTube, Clipboa
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   const getMenuItems = () => {
     switch (user?.role) {
@@ -24,7 +20,6 @@ const Dashboard = () => {
           { icon: Activity, title: 'التقارير', color: 'bg-indigo-500', path: '/reports', desc: 'التقارير والإحصائيات' },
           { icon: Settings, title: 'الإعدادات', color: 'bg-gray-500', path: '/settings', desc: 'إعدادات النظام' },
         ];
-      
       case 'DOCTOR':
         return [
           { icon: Users, title: 'مرضاي', color: 'bg-blue-500', path: '/my-patients', desc: 'ملفات مرضاي' },
@@ -33,7 +28,6 @@ const Dashboard = () => {
           { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab-results', desc: 'عرض النتائج الموثقة' },
           { icon: Clipboard, title: 'السجلات', color: 'bg-orange-500', path: '/medical-records', desc: 'السجلات الطبية' },
         ];
-      
       case 'LAB_TECH':
         return [
           { icon: TestTube, title: 'المختبر', color: 'bg-red-500', path: '/lab-tech', desc: 'إدارة الفحوصات والنتائج' },
@@ -41,7 +35,6 @@ const Dashboard = () => {
           { icon: FileCheck, title: 'المكتملة', color: 'bg-green-500', path: '/lab-tech', desc: 'النتائج الموثقة' },
           { icon: Printer, title: 'التقارير', color: 'bg-blue-500', path: '/lab-tech', desc: 'طباعة وإرسال' },
         ];
-      
       case 'RECEPTIONIST':
         return [
           { icon: Users, title: 'المرضى', color: 'bg-blue-500', path: '/patients', desc: 'تسجيل المرضى' },
@@ -49,49 +42,40 @@ const Dashboard = () => {
           { icon: DollarSign, title: 'الفواتير', color: 'bg-orange-500', path: '/invoices', desc: 'الفواتير والدفع' },
           { icon: Phone, title: 'التأكيدات', color: 'bg-green-500', path: '/confirmations', desc: 'تأكيد المواعيد' },
         ];
-      
-      default:
-        return [];
+      default: return [];
     }
   };
 
   const menuItems = getMenuItems();
-
   const getStats = () => {
     switch (user?.role) {
-      case 'ADMIN':
-        return [
-          { label: 'إجمالي المرضى', value: '--', icon: Users, color: 'text-blue-500' },
-          { label: 'الأطباء المتاحون', value: '--', icon: Stethoscope, color: 'text-green-500' },
-          { label: 'مواعيد اليوم', value: '--', icon: Calendar, color: 'text-purple-500' },
-          { label: 'الفواتير المعلقة', value: '--', icon: DollarSign, color: 'text-orange-500' },
-        ];
-      case 'DOCTOR':
-        return [
-          { label: 'مرضاى اليوم', value: '--', icon: Users, color: 'text-blue-500' },
-          { label: 'مواعيدي', value: '--', icon: Calendar, color: 'text-purple-500' },
-          { label: 'النتائج المعلقة', value: '--', icon: FileCheck, color: 'text-green-500' },
-          { label: 'الوصفات', value: '--', icon: FileText, color: 'text-orange-500' },
-        ];
-      case 'LAB_TECH':
-        return [
-          { label: 'الطلبات المعلقة', value: '--', icon: Clipboard, color: 'text-purple-500' },
-          { label: 'فحوصات اليوم', value: '--', icon: TestTube, color: 'text-red-500' },
-          { label: 'النتائج المكتملة', value: '--', icon: FileCheck, color: 'text-green-500' },
-          { label: 'قيد المعالجة', value: '--', icon: Activity, color: 'text-blue-500' },
-        ];
-      case 'RECEPTIONIST':
-        return [
-          { label: 'مواعيد اليوم', value: '--', icon: Calendar, color: 'text-purple-500' },
-          { label: 'مواعيد الغد', value: '--', icon: Calendar, color: 'text-blue-500' },
-          { label: 'الفواتير المعلقة', value: '--', icon: DollarSign, color: 'text-orange-500' },
-          { label: 'المرضى الجدد', value: '--', icon: Users, color: 'text-green-500' },
-        ];
-      default:
-        return [];
+      case 'ADMIN': return [
+        { label: 'إجمالي المرضى', value: '--', icon: Users, color: 'text-blue-500' },
+        { label: 'الأطباء المتاحون', value: '--', icon: Stethoscope, color: 'text-green-500' },
+        { label: 'مواعيد اليوم', value: '--', icon: Calendar, color: 'text-purple-500' },
+        { label: 'الفواتير المعلقة', value: '--', icon: DollarSign, color: 'text-orange-500' },
+      ];
+      case 'DOCTOR': return [
+        { label: 'مرضاى اليوم', value: '--', icon: Users, color: 'text-blue-500' },
+        { label: 'مواعيدي', value: '--', icon: Calendar, color: 'text-purple-500' },
+        { label: 'النتائج المعلقة', value: '--', icon: FileCheck, color: 'text-green-500' },
+        { label: 'الوصفات', value: '--', icon: FileText, color: 'text-orange-500' },
+      ];
+      case 'LAB_TECH': return [
+        { label: 'الطلبات المعلقة', value: '--', icon: Clipboard, color: 'text-purple-500' },
+        { label: 'فحوصات اليوم', value: '--', icon: TestTube, color: 'text-red-500' },
+        { label: 'النتائج المكتملة', value: '--', icon: FileCheck, color: 'text-green-500' },
+        { label: 'قيد المعالجة', value: '--', icon: Activity, color: 'text-blue-500' },
+      ];
+      case 'RECEPTIONIST': return [
+        { label: 'مواعيد اليوم', value: '--', icon: Calendar, color: 'text-purple-500' },
+        { label: 'مواعيد الغد', value: '--', icon: Calendar, color: 'text-blue-500' },
+        { label: 'الفواتير المعلقة', value: '--', icon: DollarSign, color: 'text-orange-500' },
+        { label: 'المرضى الجدد', value: '--', icon: Users, color: 'text-green-500' },
+      ];
+      default: return [];
     }
   };
-
   const stats = getStats();
 
   return (
@@ -132,7 +116,6 @@ const Dashboard = () => {
           </div>
         </div>
       </header>
-
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-8 text-white mb-8">
           <h2 className="text-2xl font-bold mb-2">مرحباً بك، {user?.firstName}! 👋</h2>
@@ -143,7 +126,6 @@ const Dashboard = () => {
             {user?.role === 'RECEPTIONIST' && 'إدارة المواعيد والفواتير والمرضى'}
           </p>
         </div>
-
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, index) => (
             <div key={index} className="bg-white rounded-xl p-6 shadow-sm">
@@ -155,15 +137,9 @@ const Dashboard = () => {
             </div>
           ))}
         </div>
-
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {menuItems.map((item) => (
-            <button
-              key={item.title}
-              onClick={() => navigate(item.path)}
-              type="button"
-              className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 text-center group"
-            >
+            <button key={item.title} onClick={() => navigate(item.path)} type="button" className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 text-center group">
               <div className={`${item.color} w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
                 <item.icon className="w-7 h-7 text-white" />
               </div>
