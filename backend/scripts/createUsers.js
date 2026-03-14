@@ -1,4 +1,4 @@
-// File: backend/scripts/createUsers.js - COMPLETE & FIXED
+// File: backend/scripts/createUsers.js - COMPLETE & SUDAN STANDARDS
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
@@ -7,7 +7,7 @@ const DATA_KEY = 'data';
 
 async function createUsers() {
   try {
-    console.log('🚀 Creating professional test users and lab tests...\n');
+    console.log('🚀 Creating professional test users and Sudan standard lab tests...\n');
     const hashPassword = async (pwd) => await bcrypt.hash(pwd, 10);
 
     // 1. ADMIN - ✅ using upsert
@@ -76,7 +76,7 @@ async function createUsers() {
       create: {
         userId: labUser.id,
         licenseNumber: 'LAB001',
-        specialization: 'تحاليل دم'
+        specialization: 'تحاليل دم وأحياء دقيقة'
       }
     });
     console.log('✅ Lab Tech: lab@clinic.com / Lab@123');
@@ -113,24 +113,40 @@ async function createUsers() {
     }
     console.log('✅ 3 Sample patients created');
 
-    // 6. ✅ SAMPLE LAB TESTS - Using upsert by code (CRITICAL FIX)
-    const labTestsData = [
-      { name: 'تحليل دم كامل', code: 'CBC001', category: 'BLOOD', price: 150.00, unit: 'ml', referenceRange: '12-16 g/dL', isFasting: false, turnaroundTime: 24, description: 'فحص شامل لمكونات الدم', isActive: true },
-      { name: 'سكر صائم', code: 'GLU001', category: 'BLOOD', price: 80.00, unit: 'mg/dL', referenceRange: '70-100 mg/dL', isFasting: true, turnaroundTime: 12, description: 'قياس مستوى الجلوكوز بعد صيام 8 ساعات', isActive: true },
-      { name: 'تحليل بول كامل', code: 'UA001', category: 'URINE', price: 100.00, unit: 'sample', referenceRange: 'Normal', isFasting: false, turnaroundTime: 24, description: 'فحص كيميائي وفحص مجهري للبول', isActive: true },
-      { name: 'أشعة سينية على الصدر', code: 'CXR001', category: 'XRAY', price: 250.00, unit: 'image', referenceRange: 'No abnormalities', isFasting: false, turnaroundTime: 48, description: 'تصوير شعاعي للصدر', isActive: true },
-      { name: 'وظائف كبد', code: 'LFT001', category: 'BLOOD', price: 200.00, unit: 'panel', referenceRange: 'ALT: 7-56 U/L, AST: 10-40 U/L', isFasting: false, turnaroundTime: 24, description: 'فحص إنزيمات الكبد', isActive: true },
-      { name: 'وظائف كلى', code: 'KFT001', category: 'BLOOD', price: 180.00, unit: 'panel', referenceRange: 'Creatinine: 0.6-1.2 mg/dL', isFasting: false, turnaroundTime: 24, description: 'فحص وظائف الكلى', isActive: true }
+    // 6. ✅ SUDAN STANDARD LAB TESTS - Using upsert by code
+    const sudanLabTests = [
+      // 🔴 Blood Tests
+      { name: 'تحليل دم كامل', code: 'CBC', category: 'BLOOD', price: 1500, unit: 'panel', referenceRange: 'Hb: 12-16 g/dL, WBC: 4-11 K/µL', isFasting: false, turnaroundTime: 24, description: 'فحص شامل لمكونات الدم', isActive: true },
+      { name: 'فحص مزارع الدم', code: 'BFFM', category: 'MICROBIOLOGY', price: 3500, unit: 'culture', referenceRange: 'No growth', isFasting: false, turnaroundTime: 72, description: 'زرع دم لكشف البكتيريا', isActive: true },
+      { name: 'سكر الدم', code: 'BG', category: 'BLOOD', price: 800, unit: 'mg/dL', referenceRange: '70-100 mg/dL', isFasting: true, turnaroundTime: 12, description: 'قياس مستوى الجلوكوز', isActive: true },
+      
+      // 🦟 Infectious Disease Tests (ICT Panel)
+      { name: 'ملاريا سريع', code: 'ICT_MALARIA', category: 'MICROBIOLOGY', price: 2000, unit: 'test', referenceRange: 'Negative', isFasting: false, turnaroundTime: 1, description: 'فحص سريع للملاريا', isActive: true },
+      { name: 'حمى الضنك', code: 'ICT_DENGUE', category: 'MICROBIOLOGY', price: 2500, unit: 'test', referenceRange: 'Negative', isFasting: false, turnaroundTime: 24, description: 'فحص حمى الضنك', isActive: true },
+      { name: 'تيفوئيد', code: 'ICT_TYPHOID', category: 'MICROBIOLOGY', price: 2000, unit: 'test', referenceRange: 'Negative', isFasting: false, turnaroundTime: 24, description: 'فحص التيفوئيد', isActive: true },
+      { name: 'حمل (HCG)', code: 'ICT_HCG', category: 'BLOOD', price: 1500, unit: 'test', referenceRange: 'Negative (<5 mIU/mL)', isFasting: false, turnaroundTime: 12, description: 'فحص الحمل', isActive: true },
+      { name: 'التهاب كبد ب', code: 'ICT_HBV', category: 'BLOOD', price: 3000, unit: 'test', referenceRange: 'Negative', isFasting: false, turnaroundTime: 24, description: 'فحص فيروس التهاب الكبد ب', isActive: true },
+      { name: 'التهاب كبد ج', code: 'ICT_HCV', category: 'BLOOD', price: 3000, unit: 'test', referenceRange: 'Negative', isFasting: false, turnaroundTime: 24, description: 'فحص فيروس التهاب الكبد ج', isActive: true },
+      { name: 'إيدز (HIV)', code: 'ICT_HIV', category: 'BLOOD', price: 3500, unit: 'test', referenceRange: 'Negative', isFasting: false, turnaroundTime: 24, description: 'فحص فيروس نقص المناعة', isActive: true },
+      { name: 'جرثومة المعدة', code: 'ICT_HPYLORI', category: 'BLOOD', price: 2500, unit: 'test', referenceRange: 'Negative', isFasting: true, turnaroundTime: 24, description: 'فحص جرثومة المعدة (هيليكوباكتر)', isActive: true },
+      
+      // 🧪 Urine & Stool Tests
+      { name: 'تحليل بول عام', code: 'UG', category: 'URINE', price: 1000, unit: 'sample', referenceRange: 'Normal', isFasting: false, turnaroundTime: 24, description: 'فحص كيميائي ومجهري للبول', isActive: true },
+      { name: 'تحليل براز', code: 'SG', category: 'PATHOLOGY', price: 1200, unit: 'sample', referenceRange: 'Normal', isFasting: false, turnaroundTime: 24, description: 'فحص البراز للطفيليات والبكتيريا', isActive: true },
+      
+      // 🫀 Kidney & Liver Function
+      { name: 'وظائف كلى', code: 'RFT', category: 'BLOOD', price: 2500, unit: 'panel', referenceRange: 'Creatinine: 0.6-1.2 mg/dL, Urea: 15-40 mg/dL', isFasting: false, turnaroundTime: 24, description: 'فحص وظائف الكلى الكامل', isActive: true },
+      { name: 'وظائف كبد', code: 'LFT', category: 'BLOOD', price: 3000, unit: 'panel', referenceRange: 'ALT: 7-56 U/L, AST: 10-40 U/L, Bilirubin: 0.3-1.2 mg/dL', isFasting: false, turnaroundTime: 24, description: 'فحص وظائف الكبد الكامل', isActive: true }
     ];
 
-    for (const test of labTestsData) {
+    for (const test of sudanLabTests) {
       await prisma.labTest.upsert({
         where: { code: test.code }, // ✅ Upsert by unique code
         update: {},
         create: test
       });
     }
-    console.log('✅ 6 Sample lab tests created/updated');
+    console.log(`✅ ${sudanLabTests.length} Sudan standard lab tests created/updated`);
 
     console.log('\n🎉 All test data created successfully!');
     console.log('\n📋 Login Credentials:');
