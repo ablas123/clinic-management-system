@@ -1,4 +1,4 @@
-// File: backend/server.js - MINIMAL & SAFE (Only existing routes)
+// File: backend/server.js - COMPLETE & CORS CONFIGURED
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -8,16 +8,37 @@ const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://clinic-frontend-3lwi.onrender.com',
-  credentials: true
-}));
-app.use(express.json());
+// ✅ CORS Configuration - Allow frontend to connect
+const corsOptions = {
+  origin: [
+    'https://clinic-frontend-3lwi.onrender.com',  // ✅ Production frontend
+    'http://localhost:5173',                        // ✅ Local development
+    'http://localhost:3000',
+    '*' // ⚠️ Temporarily allow all for testing - remove in production
+  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
 
-// Health check - ✅ Always available
+app.use(cors(corsOptions));
+
+// Pre-flight requests
+app.options('*', cors(corsOptions));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Health check - ✅ Always available (no auth required)
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });
+  res.json({ 
+    success: true, 
+    message: 'Server is running', 
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // ✅ Routes that we KNOW exist and are complete
@@ -28,13 +49,19 @@ app.use('/api/appointments', require('./src/routes/appointmentRoutes'));
 app.use('/api/invoices', require('./src/routes/invoiceRoutes'));
 app.use('/api/lab', require('./src/routes/labRoutes'));
 
-// ⚠️ Temporarily commented out routes that may not exist yet:
-// app.use('/api/medical-records', require('./src/routes/medicalRecordRoutes'));
-
-// Error handler - ✅ Catch-all
+// Error handler - ✅ Catch-all with CORS headers
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({ success: false, message: err.message || 'Server error' });
+  
+  // Ensure CORS headers on error responses
+  res.header('Access-Control-Allow-Origin', req.get('origin') || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  res.status(500).json({ 
+    success: false, 
+    message: err.message || 'Server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
 // ✅ Safe seed - only runs if no users exist
@@ -60,6 +87,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 Clinic API: http://localhost:${PORT}/api/health`);
+  console.log(`🔗 CORS allowed origins: ${corsOptions.origin.join(', ')}`);
   
   // Run seed after DB is ready
   await seedIfEmpty();
