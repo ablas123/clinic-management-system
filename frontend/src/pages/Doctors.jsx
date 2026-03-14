@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Doctors.jsx - FINAL FIXED VERSION
+// File: frontend/src/pages/Doctors.jsx - BULLETPROOF VERSION
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -16,67 +16,78 @@ const Doctors = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
-    specialty: '',
-    licenseNumber: '',
-    bio: '',
-    consultationFee: '',
-    maxPatientsPerDay: '20',
-    isAvailable: true
+    firstName: '', lastName: '', email: '', phone: '', password: '',
+    specialty: '', licenseNumber: '', bio: '', consultationFee: '',
+    maxPatientsPerDay: '20', isAvailable: true
   });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 [Doctors] Component mounted, fetching data...');
     fetchDoctors();
   }, []);
 
   const fetchDoctors = async () => {
     try {
+      console.log('📡 [Doctors] Fetching from /api/doctors...');
       setLoading(true);
       setError('');
       
       const response = await api.get(`/doctors?search=${search}`);
+      console.log('📥 [Doctors] Response:', response.data);
       
       if (response.data?.success) {
         // ✅ دعم كل أشكال الاستجابة
-        const data = response.data.data?.doctors || response.data['data']?.doctors || [];
-        setDoctors(data);
+        const doctorsData = 
+          response.data.data?.doctors || 
+          response.data['data']?.doctors || 
+          [];
+        
+        console.log('📊 [Doctors] Found', doctorsData.length, 'doctors');
+        setDoctors(doctorsData);
+        
+        if (doctorsData.length === 0) {
+          console.warn('⚠️ [Doctors] No doctors found in database');
+        }
+      } else {
+        console.error('❌ [Doctors] API returned success: false', response.data);
+        setError(response.data?.message || 'فشل جلب البيانات');
       }
     } catch (err) {
-      console.error('Fetch doctors error:', err);
-      setError(err.message || 'فشل تحميل الأطباء');
+      console.error('💥 [Doctors] Fetch error:', err);
+      setError(err.message || 'خطأ في الاتصال بالخادم');
       if (err.response?.status === 401) {
+        console.log('🔐 [Doctors] Unauthorized, redirecting to login');
         logout();
         navigate('/login');
       }
     } finally {
       setLoading(false);
+      console.log('✅ [Doctors] Fetch completed, loading:', false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('📤 [Doctors] Submitting form:', formData);
     setSubmitting(true);
     setError('');
 
     try {
       if (editingId) {
-        // تحديث التوفر فقط
+        console.log('🔄 [Doctors] Updating availability for', editingId);
         await api.patch(`/doctors/${editingId}/availability`, { isAvailable: formData.isAvailable });
       } else {
-        // إنشاء طبيب جديد
         if (!formData.password) {
           setError('كلمة المرور مطلوبة للأطباء الجدد');
           setSubmitting(false);
           return;
         }
+        console.log('➕ [Doctors] Creating new doctor');
         await api.post('/doctors', formData);
       }
       
+      console.log('✅ [Doctors] Operation successful, refreshing list');
       setShowForm(false);
       setEditingId(null);
       setFormData({
@@ -86,7 +97,7 @@ const Doctors = () => {
       });
       fetchDoctors();
     } catch (err) {
-      console.error('Submit doctor error:', err);
+      console.error('❌ [Doctors] Submit error:', err);
       setError(err.response?.data?.message || (editingId ? 'فشل التحديث' : 'فشل الإضافة'));
     } finally {
       setSubmitting(false);
@@ -94,6 +105,7 @@ const Doctors = () => {
   };
 
   const handleEdit = (doctor) => {
+    console.log('✏️ [Doctors] Editing doctor:', doctor.id);
     setFormData({
       firstName: doctor.user?.firstName || '',
       lastName: doctor.user?.lastName || '',
@@ -112,24 +124,29 @@ const Doctors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الطبيب؟ لا يمكن التراجع.')) return;
+    if (!window.confirm('هل أنت متأكد من حذف هذا الطبيب؟')) return;
     try {
+      console.log('🗑️ [Doctors] Deleting doctor:', id);
       await api.delete(`/doctors/${id}`);
       setDoctors(doctors.filter(d => d.id !== id));
     } catch (err) {
+      console.error('❌ [Doctors] Delete error:', err);
       setError(err.response?.data?.message || 'فشل الحذف');
     }
   };
 
   const toggleAvailability = async (id, currentStatus) => {
     try {
+      console.log('🔄 [Doctors] Toggling availability for', id, 'to', !currentStatus);
       await api.patch(`/doctors/${id}/availability`, { isAvailable: !currentStatus });
       setDoctors(doctors.map(d => d.id === id ? { ...d, isAvailable: !currentStatus } : d));
     } catch (err) {
+      console.error('❌ [Doctors] Toggle error:', err);
       setError(err.response?.data?.message || 'فشل تحديث الحالة');
     }
   };
 
+  // ✅ واجهة المستخدم - واضحة حتى بدون بيانات
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
       <header className="bg-white shadow-sm sticky top-0 z-10">
@@ -151,6 +168,7 @@ const Doctors = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* رسالة الخطأ */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-6">
             <AlertCircle className="w-5 h-5" />
@@ -159,6 +177,7 @@ const Doctors = () => {
           </div>
         )}
 
+        {/* نموذج الإضافة/التعديل */}
         {showForm && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -191,6 +210,7 @@ const Doctors = () => {
           </div>
         )}
 
+        {/* شريط البحث */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -198,14 +218,21 @@ const Doctors = () => {
           </div>
         </div>
 
+        {/* جدول الأطباء */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-green-500 mb-2" /><p className="text-gray-600">جاري التحميل...</p></div>
+            <div className="p-8 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-green-500 mb-2" />
+              <p className="text-gray-600">جاري تحميل الأطباء...</p>
+            </div>
           ) : doctors.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <Stethoscope className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>لا يوجد أطباء مسجلين</p>
-              <button onClick={() => setShowForm(true)} className="mt-4 text-green-600 hover:text-green-700 font-medium" type="button">+ أضف أول طبيب</button>
+              <p className="font-medium">{search ? 'لا توجد نتائج للبحث' : 'لا يوجد أطباء مسجلين'}</p>
+              <p className="text-sm mt-2">اضغط على "إضافة طبيب" لإنشاء أول طبيب</p>
+              <button onClick={() => setShowForm(true)} className="mt-4 text-green-600 hover:text-green-700 font-medium" type="button">
+                + أضف طبيباً الآن
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -216,7 +243,7 @@ const Doctors = () => {
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">الطبيب</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">التخصص</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden lg:table-cell">الترخيص</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">رسوم الكشف</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">الرسوم</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">الحالة</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
                   </tr>
@@ -231,16 +258,26 @@ const Doctors = () => {
                             <User className="w-5 h-5 text-green-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-800">{doctor.user?.firstName || '-'} {doctor.user?.lastName || ''}</p>
-                            <p className="text-xs text-gray-500 flex items-center gap-1"><Mail className="w-3 h-3" /> {doctor.user?.email || '-'}</p>
+                            <p className="font-medium text-gray-800">
+                              {doctor.user?.firstName || 'غير معروف'} {doctor.user?.lastName || ''}
+                            </p>
+                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                              <Mail className="w-3 h-3" /> {doctor.user?.email || '-'}
+                            </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">{doctor.specialty || '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-600 hidden lg:table-cell font-mono">{doctor.licenseNumber || '-'}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-gray-800">{doctor.consultationFee?.toFixed(2) || '0.00'} ر.س</td>
+                      <td className="px-4 py-3 text-sm font-bold text-gray-800">
+                        {doctor.consultationFee ? `${parseFloat(doctor.consultationFee).toFixed(2)} ر.س` : '-'}
+                      </td>
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => toggleAvailability(doctor.id, doctor.isAvailable)} className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${doctor.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} type="button">
+                        <button 
+                          onClick={() => toggleAvailability(doctor.id, doctor.isAvailable)} 
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${doctor.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} 
+                          type="button"
+                        >
                           {doctor.isAvailable ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                           {doctor.isAvailable ? 'متاح' : 'غير متاح'}
                         </button>
