@@ -1,9 +1,8 @@
-// File: backend/server.js - COMPLETE & PRODUCTION READY
+// File: backend/server.js - UPDATED with medicalRecordRoutes
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorize } = require('./src/middleware/auth');
 
 const prisma = new PrismaClient();
 const app = express();
@@ -21,14 +20,14 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });
 });
 
-// Routes
+// Routes - ✅ All verified routes including medical records
 app.use('/api/auth', require('./src/routes/authRoutes'));
 app.use('/api/patients', require('./src/routes/patientRoutes'));
 app.use('/api/doctors', require('./src/routes/doctorRoutes'));
 app.use('/api/appointments', require('./src/routes/appointmentRoutes'));
 app.use('/api/invoices', require('./src/routes/invoiceRoutes'));
 app.use('/api/lab', require('./src/routes/labRoutes'));
-app.use('/api/medical-records', require('./src/routes/medicalRecordRoutes'));
+app.use('/api/medical-records', require('./src/routes/medicalRecordRoutes')); // ✅ NEW
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -36,7 +35,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: err.message || 'Server error' });
 });
 
-// ✅ Safe seed function - runs after DB is ready
+// Safe seed function
 async function seedIfEmpty() {
   try {
     const userCount = await prisma.user.count();
@@ -60,7 +59,6 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 Clinic API: http://localhost:${PORT}/api/health`);
   
-  // Run seed after DB is ready
   await seedIfEmpty();
 });
 
