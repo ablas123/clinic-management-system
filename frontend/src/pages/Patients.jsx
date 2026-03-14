@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Patients.jsx - PRODUCTION READY (FIXED)
+// File: frontend/src/pages/Patients.jsx - COMPLETE & PRODUCTION READY
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -208,8 +208,17 @@ const Patients = () => {
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <form onSubmit={handleSearch} className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input type="text" placeholder="بحث باسم المريض، الهاتف، أو البريد..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg" />
-            <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700" type="button">بحث</button>
+            <input 
+              type="text" 
+              placeholder="بحث باسم المريض، الهاتف، أو البريد..." 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg"
+            />
+            {/* ✅ FIXED: Only type="submit" - no duplicate type attribute */}
+            <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700" type="button">
+              بحث
+            </button>
           </form>
         </div>
 
