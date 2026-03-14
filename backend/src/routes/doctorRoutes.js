@@ -1,11 +1,11 @@
-// File: backend/src/routes/doctorRoutes.js
+// File: backend/src/routes/doctorRoutes.js - PRODUCTION READY
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
-// ✅ ثابت لتجنب مشكلة : في جميع استدعاءات Prisma
 const DATA_KEY = 'data';
 
 // ===========================================
@@ -40,8 +40,7 @@ router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, re
               firstName: true,
               lastName: true,
               email: true,
-              phone: true,
-              avatar: true
+              phone: true
             }
           }
         }
@@ -63,63 +62,32 @@ router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, re
     };
     res.json(responseData);
   } catch (e) {
+    console.error('Get doctors error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
 // ===========================================
-// GET DOCTOR BY ID
-// ===========================================
-router.get('/:id', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, res) => {
-  try {
-    const doctor = await prisma.doctor.findUnique({
-      where: { id: req.params.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            avatar: true
-          }
-        },
-        appointments: {
-          where: { date: { gte: new Date() } },
-          orderBy: { date: 'asc' },
-          take: 5,
-          include: { patient: { select: { firstName: true, lastName: true } } }
-        }
-      }
-    });
-
-    if (!doctor) {
-      return res.status(404).json({ success: false, message: 'Doctor not found' });
-    }
-
-    const responseData = { success: true, ['data']: { doctor } };
-    res.json(responseData);
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
-  }
-});
-
-// ===========================================
-// CREATE DOCTOR - ✅ استخدام DATA_KEY
+// CREATE DOCTOR
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, specialty, licenseNumber, bio, consultationFee, maxPatientsPerDay } = req.body;
 
     if (!firstName || !lastName || !email || !password || !specialty || !licenseNumber) {
-      return res.status(400).json({ success: false, message: 'Required fields missing' });
+      return res.status(400).json({ success: false, message: 'الحقول المطلوبة: الاسم، البريد، كلمة المرور، التخصص، رقم الترخيص' });
     }
 
-    const bcrypt = require('bcryptjs');
+    // Check if email exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'البريد الإلكتروني مستخدم بالفعل' });
+    }
+
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ إنشاء المستخدم
+    // Create user first
     const userPayload = {
       email,
       password: hashedPassword,
@@ -129,10 +97,9 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       role: 'DOCTOR',
       status: 'ACTIVE'
     };
-    const userConfig = { [DATA_KEY]: userPayload };
-    const user = await prisma.user.create(userConfig);
+    const user = await prisma.user.create({ [DATA_KEY]: userPayload });
 
-    // ✅ إنشاء ملف الطبيب
+    // Create doctor profile
     const doctorPayload = {
       userId: user.id,
       specialty,
@@ -141,41 +108,44 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       consultationFee: consultationFee ? parseFloat(consultationFee) : 0,
       maxPatientsPerDay: maxPatientsPerDay ? parseInt(maxPatientsPerDay) : 20
     };
-    const doctorConfig = { [DATA_KEY]: doctorPayload };
-    const doctor = await prisma.doctor.create(doctorConfig);
+    const doctor = await prisma.doctor.create({ [DATA_KEY]: doctorPayload });
 
-    const responseData = { success: true, message: 'Doctor created', ['data']: { doctor } };
+    const responseData = { success: true, message: 'تم إضافة الطبيب بنجاح', ['data']: { doctor } };
     res.status(201).json(responseData);
   } catch (e) {
+    console.error('Create doctor error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
 // ===========================================
-// UPDATE AVAILABILITY - ✅ استخدام DATA_KEY هنا أيضاً
+// UPDATE AVAILABILITY
 // ===========================================
 router.patch('/:id/availability', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const { isAvailable } = req.body;
 
+    // Check authorization
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { id, userId: req.user.userId } });
       if (!doctor) {
-        return res.status(403).json({ success: false, message: 'Not authorized' });
+        return res.status(403).json({ success: false, message: 'غير مصرح لك' });
       }
     } else if (req.user.role !== 'ADMIN') {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+      return res.status(403).json({ success: false, message: 'غير مصرح لك' });
     }
 
-    // ✅ استخدام DATA_KEY لتجنب مشكلة :
     const updatePayload = { isAvailable: isAvailable === true || isAvailable === 'true' };
-    const updateConfig = { where: { id }, [DATA_KEY]: updatePayload };
-    const doctor = await prisma.doctor.update(updateConfig);
+    const doctor = await prisma.doctor.update({
+      where: { id },
+      [DATA_KEY]: updatePayload
+    });
 
-    const responseData = { success: true, message: 'Availability updated', ['data']: { doctor } };
+    const responseData = { success: true, message: 'تم تحديث الحالة', ['data']: { doctor } };
     res.json(responseData);
   } catch (e) {
+    console.error('Update availability error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
@@ -187,11 +157,12 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const existing = await prisma.doctor.findUnique({ where: { id: req.params.id } });
     if (!existing) {
-      return res.status(404).json({ success: false, message: 'Doctor not found' });
+      return res.status(404).json({ success: false, message: 'الطبيب غير موجود' });
     }
     await prisma.doctor.delete({ where: { id: req.params.id } });
-    res.json({ success: true, message: 'Doctor deleted' });
+    res.json({ success: true, message: 'تم حذف الطبيب' });
   } catch (e) {
+    console.error('Delete doctor error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
