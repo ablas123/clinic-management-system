@@ -1,16 +1,15 @@
-// File: backend/scripts/createUsers.js - COMPLETE & SAFE
+// File: backend/scripts/createUsers.js - COMPLETE & PRODUCTION READY
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
-const DATA_KEY = 'data'; // ✅ Critical for Prisma
+const DATA_KEY = 'data';
 
 async function createUsers() {
   try {
     console.log('🚀 Creating professional test users and Sudan standard lab tests...\n');
     const hashPassword = async (pwd) => await bcrypt.hash(pwd, 10);
 
-    // Helper: Upsert user with role
     const upsertUser = async (email, password, firstName, lastName, phone, role) => {
       return await prisma.user.upsert({
         where: { email },
@@ -31,7 +30,7 @@ async function createUsers() {
     await upsertUser('admin@clinic.com', 'Admin@123', 'مدير', 'النظام', '0500000001', 'ADMIN');
     console.log('✅ Admin: admin@clinic.com / Admin@123');
 
-    // 2. DOCTOR - Two-step with upsert
+    // 2. DOCTOR
     const doctorUser = await upsertUser('doctor@clinic.com', 'Doctor@123', 'د. محمد', 'الأحمد', '0500000002', 'DOCTOR');
     await prisma.doctor.upsert({
       where: { userId: doctorUser.id },
@@ -47,7 +46,7 @@ async function createUsers() {
     });
     console.log('✅ Doctor: doctor@clinic.com / Doctor@123');
 
-    // 3. LAB TECH - Two-step with upsert
+    // 3. LAB TECH
     const labUser = await upsertUser('lab@clinic.com', 'Lab@123', 'أحمد', 'المعمل', '0500000003', 'LAB_TECH');
     await prisma.labTechnician.upsert({
       where: { userId: labUser.id },
@@ -64,7 +63,7 @@ async function createUsers() {
     await upsertUser('reception@clinic.com', 'Reception@123', 'سارة', 'الاستقبال', '0500000004', 'RECEPTIONIST');
     console.log('✅ Receptionist: reception@clinic.com / Reception@123');
 
-    // 5. SAMPLE PATIENTS - Upsert by phone
+    // 5. SAMPLE PATIENTS
     const patients = [
       { firstName: 'محمد', lastName: 'البريكي', email: 'p1@clinic.com', phone: '0501111111', dateOfBirth: new Date('1990-05-15'), gender: 'MALE', bloodType: 'O+' },
       { firstName: 'فاطمة', lastName: 'السعدي', email: 'p2@clinic.com', phone: '0502222222', dateOfBirth: new Date('1985-08-20'), gender: 'FEMALE', bloodType: 'A+' },
@@ -75,7 +74,7 @@ async function createUsers() {
     }
     console.log('✅ 3 Sample patients created');
 
-    // 6. ✅ SUDAN STANDARD LAB TESTS - Upsert by code
+    // 6. SUDAN STANDARD LAB TESTS
     const sudanTests = [
       { name: 'تحليل دم كامل', code: 'CBC', category: 'BLOOD', price: 1500, unit: 'panel', referenceRange: 'Hb: 12-16 g/dL', isFasting: false, turnaroundTime: 24, description: 'فحص شامل لمكونات الدم', isActive: true },
       { name: 'فحص مزارع الدم', code: 'BFFM', category: 'MICROBIOLOGY', price: 3500, unit: 'culture', referenceRange: 'No growth', isFasting: false, turnaroundTime: 72, description: 'زرع دم لكشف البكتيريا', isActive: true },
@@ -113,10 +112,8 @@ async function createUsers() {
   }
 }
 
-// Export for use in server.js
 module.exports = { createUsers };
 
-// Run if called directly
 if (require.main === module) {
   createUsers().then(() => process.exit(0)).catch(() => process.exit(1));
 }
