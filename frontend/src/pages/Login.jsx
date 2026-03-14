@@ -15,7 +15,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ إذا كان المستخدم مسجلاً بالفعل، أعد توجيهه
+  // ✅ إعادة التوجيه إذا كان مسجلاً
   if (user) {
     const from = location.state?.from?.pathname || '/dashboard';
     navigate(from, { replace: true });
@@ -27,16 +27,20 @@ const Login = () => {
     setLoading(true);
     setError('');
 
+    console.log('📤 Submitting login:', { email });
+    
     try {
       const result = await login(email, password);
+      console.log('📥 Login result:', result);
       
       if (!result.success) {
-        setError(result.message);
+        // ✅ عرض الرسالة الحقيقية بدلاً من "Unknown"
+        setError(result.message || 'فشل تسجيل الدخول');
       }
-      // ✅ إذا نجح، يتم التوجيه داخل دالة login()
     } catch (err) {
-      setError('حدث خطأ غير متوقع. حاول مرة أخرى.');
-      console.error('Login submission error:', err);
+      // ✅ عرض الخطأ الحقيقي للتصحيح
+      console.error('💥 Unhandled login error:', err);
+      setError(err.message || 'حدث خطأ غير متوقع');
     } finally {
       setLoading(false);
     }
@@ -45,7 +49,6 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4" dir="rtl">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
             <LogIn className="w-8 h-8 text-blue-600" />
@@ -54,17 +57,14 @@ const Login = () => {
           <p className="text-gray-500 mt-1">سجّل الدخول للمتابعة</p>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-6">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm break-all">{error}</span>
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">البريد الإلكتروني</label>
             <input
@@ -78,7 +78,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">كلمة المرور</label>
             <div className="relative">
@@ -101,27 +100,19 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 rounded-lg transition flex items-center justify-center gap-2"
           >
             {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                جاري التسجيل...
-              </>
+              <><Loader2 className="w-5 h-5 animate-spin" /> جاري التسجيل...</>
             ) : (
-              <>
-                <LogIn className="w-5 h-5" />
-                تسجيل الدخول
-              </>
+              <><LogIn className="w-5 h-5" /> تسجيل الدخول</>
             )}
           </button>
         </form>
 
-        {/* Demo Credentials */}
         <div className="mt-8 pt-6 border-t border-gray-100">
           <p className="text-xs text-gray-500 text-center mb-3">بيانات تجريبية:</p>
           <div className="grid grid-cols-2 gap-2 text-xs">
