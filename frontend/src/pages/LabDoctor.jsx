@@ -1,4 +1,4 @@
-// File: frontend/src/pages/LabDoctor.jsx - COMPLETE & HL7-COMPLIANT
+// File: frontend/src/pages/LabDoctor.jsx - COMPLETE & FIXED (Shows Active Tests)
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,7 @@ const LabDoctor = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [activeTab, setActiveTab] = useState('request'); // 'request' | 'history'
+  const [activeTab, setActiveTab] = useState('request');
   const [labTests, setLabTests] = useState([]);
   const [requests, setRequests] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -45,25 +45,35 @@ const LabDoctor = () => {
       setError('');
       
       if (activeTab === 'request') {
-        const [testsRes, patientsRes] = await Promise.all([
-          api.get('/lab/tests'),
-          api.get('/patients')
-        ]);
+        // ✅ جلب الفحوصات النشطة فقط + دعم ['data'] fallback
+        const testsRes = await api.get('/lab/tests?isActive=true');
         if (testsRes.data?.success) {
-          const data = testsRes.data.data?.labTests || testsRes.data['data']?.labTests || [];
-          setLabTests(data.filter(t => t.isActive));
+          const testsData = 
+            testsRes.data.data?.labTests || 
+            testsRes.data['data']?.labTests || 
+            [];
+          setLabTests(testsData.filter(t => t.isActive !== false));
+          console.log('📊 [LabDoctor] Loaded', testsData.length, 'active tests');
         }
+        
+        const patientsRes = await api.get('/patients');
         if (patientsRes.data?.success) {
-          const data = patientsRes.data.data?.patients || patientsRes.data['data']?.patients || [];
-          setPatients(data);
+          const patientsData = 
+            patientsRes.data.data?.patients || 
+            patientsRes.data['data']?.patients || 
+            [];
+          setPatients(patientsData);
         }
       }
       
       if (activeTab === 'history') {
         const res = await api.get('/lab/requests');
         if (res.data?.success) {
-          const data = res.data.data?.requests || res.data['data']?.requests || [];
-          setRequests(data);
+          const requestsData = 
+            res.data.data?.requests || 
+            res.data['data']?.requests || 
+            [];
+          setRequests(requestsData);
         }
       }
     } catch (err) {
@@ -109,7 +119,6 @@ const LabDoctor = () => {
       });
       
       if (response.data?.success) {
-        // ✅ إعادة تعيين النموذج
         setSelectedTests([]);
         setRequestForm({ patientId: '', priority: 'NORMAL', clinicalNotes: '' });
         setActiveTab('history');
@@ -170,7 +179,6 @@ const LabDoctor = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-6">
             <AlertCircle className="w-5 h-5" />
@@ -242,7 +250,7 @@ const LabDoctor = () => {
               </div>
             </div>
 
-            {/* Test Selection */}
+            {/* Test Selection - ✅ FIXED: Shows active tests */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -261,43 +269,53 @@ const LabDoctor = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto border rounded-lg p-3">
-                  {labTests.filter(t => 
-                    t.name?.toLowerCase().includes(search.toLowerCase()) || 
-                    t.code?.toLowerCase().includes(search.toLowerCase())
-                  ).map(test => (
-                    <label 
-                      key={test.code} 
-                      className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                        selectedTests.includes(test.code) 
-                          ? 'bg-red-50 border-red-300' 
-                          : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <input 
-                        type="checkbox" 
-                        checked={selectedTests.includes(test.code)}
-                        onChange={() => handleTestToggle(test.code)}
-                        className="w-4 h-4 mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-sm text-gray-800">{test.name}</p>
-                          <span className="text-xs font-bold text-gray-700">{test.price.toFixed(2)} ر.س</span>
-                        </div>
-                        <p className="text-xs text-gray-500 font-mono">{test.code}</p>
-                        <div className="flex items-center gap-2 mt-1 text-xs">
-                          {test.isFasting && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">صيام</span>}
-                          <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{test.turnaroundTime}س</span>
-                          <span className="text-gray-400">{test.unit}</span>
-                        </div>
-                        {test.referenceRange && (
-                          <p className="text-xs text-gray-400 mt-1">المدى: {test.referenceRange}</p>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                {labTests.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <TestTube className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>لا توجد فحوصات متاحة حالياً</p>
+                    <p className="text-sm mt-2">يرجى التواصل مع إدارة المختبر لإضافة الفحوصات</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto border rounded-lg p-3">
+                    {labTests
+                      .filter(t => 
+                        t.name?.toLowerCase().includes(search.toLowerCase()) || 
+                        t.code?.toLowerCase().includes(search.toLowerCase())
+                      )
+                      .map(test => (
+                        <label 
+                          key={test.code} 
+                          className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                            selectedTests.includes(test.code) 
+                              ? 'bg-red-50 border-red-300' 
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={selectedTests.includes(test.code)}
+                            onChange={() => handleTestToggle(test.code)}
+                            className="w-4 h-4 mt-1"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium text-sm text-gray-800">{test.name}</p>
+                              <span className="text-xs font-bold text-gray-700">{test.price.toFixed(2)} ر.س</span>
+                            </div>
+                            <p className="text-xs text-gray-500 font-mono">{test.code}</p>
+                            <div className="flex items-center gap-2 mt-1 text-xs">
+                              {test.isFasting && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">صيام</span>}
+                              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{test.turnaroundTime}س</span>
+                              <span className="text-gray-400">{test.unit}</span>
+                            </div>
+                            {test.referenceRange && (
+                              <p className="text-xs text-gray-400 mt-1">المدى: {test.referenceRange}</p>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                  </div>
+                )}
 
                 {/* Submit Button */}
                 <div className="mt-4 pt-4 border-t flex items-center justify-between">
