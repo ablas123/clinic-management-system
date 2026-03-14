@@ -1,6 +1,6 @@
-// File: frontend/src/pages/LabCatalog.jsx - COMPLETE (Admin/Lab Tech Catalog Management)
+// File: frontend/src/pages/LabCatalog.jsx - COMPLETE & FORM FIXED
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { ArrowLeft, TestTube, Search, Plus, Edit, Trash2, Loader2, AlertCircle, X, Save, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -8,6 +8,7 @@ import { ArrowLeft, TestTube, Search, Plus, Edit, Trash2, Loader2, AlertCircle, 
 const LabCatalog = () => {
   const { logout, hasRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [labTests, setLabTests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,18 @@ const LabCatalog = () => {
     { value: 'OTHER', label: 'أخرى' }
   ];
 
+  // ✅ Handle edit from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const editId = params.get('edit');
+    if (editId && labTests.length > 0) {
+      const test = labTests.find(t => t.id === editId);
+      if (test) {
+        handleEdit(test);
+      }
+    }
+  }, [location.search, labTests]);
+
   useEffect(() => {
     fetchLabTests();
   }, []);
@@ -50,7 +63,6 @@ const LabCatalog = () => {
       setLoading(true);
       setError('');
       
-      // ✅ جلب كل الفحوصات (بما فيها غير النشطة) للأدمن/فني
       const res = await api.get('/lab/tests?includeInactive=true');
       if (res.data?.success) {
         const data = 
@@ -77,9 +89,6 @@ const LabCatalog = () => {
     setError('');
 
     try {
-      const url = editingId ? `/lab/tests/${editingId}` : '/lab/tests';
-      const method = editingId ? 'put' : 'post';
-      
       const payload = {
         ...formData,
         price: parseFloat(formData.price),
@@ -87,18 +96,22 @@ const LabCatalog = () => {
         isFasting: formData.isFasting === true || formData.isFasting === 'true'
       };
 
-      const response = await api[method](url, payload);
-      
-      if (response.data?.success) {
-        setShowForm(false);
-        setEditingId(null);
-        setFormData({
-          name: '', code: '', category: 'BLOOD', price: '', unit: '',
-          referenceRange: '', isFasting: false, turnaroundTime: '24',
-          description: '', isActive: true
-        });
-        fetchLabTests();
+      if (editingId) {
+        // ✅ UPDATE: Use PUT with proper endpoint
+        await api.put(`/lab/tests/${editingId}`, payload);
+      } else {
+        // ✅ CREATE: Use POST
+        await api.post('/lab/tests', payload);
       }
+      
+      setShowForm(false);
+      setEditingId(null);
+      setFormData({
+        name: '', code: '', category: 'BLOOD', price: '', unit: '',
+        referenceRange: '', isFasting: false, turnaroundTime: '24',
+        description: '', isActive: true
+      });
+      fetchLabTests();
     } catch (err) {
       console.error('❌ [LabCatalog] Submit error:', err);
       setError(err.response?.data?.message || (editingId ? 'فشل التحديث' : 'فشل الإضافة'));
@@ -122,6 +135,8 @@ const LabCatalog = () => {
     });
     setEditingId(test.id);
     setShowForm(true);
+    // ✅ Update URL for bookmarking
+    navigate(`/lab-catalog?edit=${test.id}`, { replace: true });
   };
 
   const toggleActive = async (id, currentStatus) => {
@@ -136,7 +151,6 @@ const LabCatalog = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من حذف هذا الفحص؟')) return;
     try {
-      // Soft delete via isActive = false
       await api.patch(`/lab/tests/${id}/active`, { isActive: false });
       setLabTests(labTests.filter(t => t.id !== id));
     } catch (err) {
@@ -162,7 +176,7 @@ const LabCatalog = () => {
               <h1 className="text-xl font-bold text-gray-800">كتالوج فحوصات المختبر</h1>
             </div>
           </div>
-          <button onClick={() => { setShowForm(true); setEditingId(null); }} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg" type="button">
+          <button onClick={() => { setShowForm(true); setEditingId(null); navigate('/lab-catalog'); }} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg" type="button">
             <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">إضافة فحص</span>
           </button>
@@ -182,11 +196,11 @@ const LabCatalog = () => {
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">{editingId ? 'تعديل فحص' : 'إضافة فحص جديد'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="p-1 hover:bg-gray-100 rounded" type="button"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowForm(false); setEditingId(null); navigate('/lab-catalog'); }} className="p-1 hover:bg-gray-100 rounded" type="button"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input type="text" placeholder="اسم الفحص *" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
-              <input type="text" placeholder="رمز الفحص *" value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required />
+              <input type="text" placeholder="رمز الفحص *" value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})} className="border border-gray-300 rounded-lg px-4 py-2 uppercase" required />
               <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2">
                 {categories.map(cat => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
               </select>
@@ -210,7 +224,7 @@ const LabCatalog = () => {
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   {submitting ? 'جاري...' : (editingId ? 'تحديث' : 'إضافة')}
                 </button>
-                <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg">إلغاء</button>
+                <button type="button" onClick={() => { setShowForm(false); setEditingId(null); navigate('/lab-catalog'); }} className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg">إلغاء</button>
               </div>
             </form>
           </div>
@@ -231,7 +245,7 @@ const LabCatalog = () => {
               <TestTube className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>{search ? 'لا توجد نتائج' : 'لا توجد فحوصات في الكتالوج'}</p>
               {hasRole(['ADMIN', 'LAB_TECH']) && !search && (
-                <button onClick={() => setShowForm(true)} className="mt-4 text-red-600 hover:text-red-700 font-medium" type="button">+ أضف أول فحص</button>
+                <button onClick={() => { setShowForm(true); navigate('/lab-catalog'); }} className="mt-4 text-red-600 hover:text-red-700 font-medium" type="button">+ أضف أول فحص</button>
               )}
             </div>
           ) : (
@@ -258,7 +272,7 @@ const LabCatalog = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell font-mono">{test.code}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{categories.find(c => c.value === test.category)?.label || test.category}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-gray-800">{test.price?.toFixed(2) || '0.00'} ر.س</td>
+                      <td className="px-4 py-3 text-sm font-bold text-gray-800">{test.price?.toFixed(2) || '0.00'} ج.س</td>
                       <td className="px-4 py-3 text-center">
                         <button 
                           onClick={() => toggleActive(test.id, test.isActive)}
