@@ -1,15 +1,15 @@
-// File: frontend/src/pages/LabTech.jsx - COMPLETE & HL7-COMPLIANT
+// File: frontend/src/pages/LabTech.jsx - COMPLETE (Lab Tech Full Permissions)
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { ArrowLeft, TestTube, Search, Loader2, AlertCircle, X, Clipboard, FileCheck, Printer, Send, Plus, Edit, Save, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, TestTube, Search, Loader2, AlertCircle, X, Clipboard, FileCheck, Printer, Send, Plus, Edit, Save, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
 
 const LabTech = () => {
-  const { logout } = useAuth();
+  const { logout, hasRole } = useAuth();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'catalog' | 'custom'
+  const [activeTab, setActiveTab] = useState('pending');
   const [pendingResults, setPendingResults] = useState([]);
   const [labTests, setLabTests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,15 +38,21 @@ const LabTech = () => {
       if (activeTab === 'pending') {
         const res = await api.get('/lab/results/pending');
         if (res.data?.success) {
-          const data = res.data.data?.results || res.data['data']?.results || [];
+          const data = 
+            res.data.data?.results || 
+            res.data['data']?.results || 
+            [];
           setPendingResults(data);
         }
       }
       
-      if (activeTab === 'catalog') {
-        const res = await api.get('/lab/tests');
+      if (activeTab === 'catalog' && hasRole(['ADMIN', 'LAB_TECH'])) {
+        const res = await api.get('/lab/tests?includeInactive=true');
         if (res.data?.success) {
-          const data = res.data.data?.labTests || res.data['data']?.labTests || [];
+          const data = 
+            res.data.data?.labTests || 
+            res.data['data']?.labTests || 
+            [];
           setLabTests(data);
         }
       }
@@ -69,13 +75,10 @@ const LabTech = () => {
     }));
   };
 
-  // ✅ Auto-detect abnormal based on reference range
   const checkAbnormal = (value, referenceRange) => {
     if (!value || !referenceRange) return false;
     const numValue = parseFloat(value);
     if (isNaN(numValue)) return false;
-    
-    // Parse "120-160" format
     const match = referenceRange.match(/([\d.]+)\s*[-–—]\s*([\d.]+)/);
     if (match) {
       const min = parseFloat(match[1]);
@@ -88,8 +91,7 @@ const LabTech = () => {
   const saveResult = async (resultId) => {
     try {
       const updates = resultForm[resultId] || {};
-      // Auto-set isAbnormal if not explicitly set
-      if (updates.value && !updates.isAbnormal) {
+      if (updates.value && updates.isAbnormal === undefined) {
         const result = pendingResults.find(r => r.id === resultId);
         if (result?.referenceRange) {
           updates.isAbnormal = checkAbnormal(updates.value, result.referenceRange);
@@ -107,14 +109,12 @@ const LabTech = () => {
 
   const verifyAndSend = async (resultId) => {
     try {
-      // First save any pending changes
       const updates = resultForm[resultId] || {};
       if (Object.keys(updates).length > 0) {
         await api.patch(`/lab/results/${resultId}`, { ...updates, status: 'VERIFIED' });
       } else {
         await api.patch(`/lab/results/${resultId}`, { status: 'VERIFIED' });
       }
-      // Mark as sent to doctor
       await api.post(`/lab/results/${resultId}/send`);
       fetchData();
     } catch (err) {
@@ -126,7 +126,6 @@ const LabTech = () => {
   const printResult = async (resultId) => {
     try {
       await api.post(`/lab/results/${resultId}/print`);
-      // Trigger browser print
       window.print();
     } catch (err) {
       console.error('❌ [LabTech] Print error:', err);
@@ -139,27 +138,14 @@ const LabTech = () => {
       setError('اسم الفحص مطلوب');
       return;
     }
-    
     setSubmitting(true);
     try {
-      // For custom tests, we store them in the result notes field
-      // In production, you might want a separate endpoint for custom catalog items
-      const customData = {
-        ...customTestForm,
-        code: `CUSTOM_${Date.now()}`,
-        category: 'OTHER',
-        price: 0,
-        turnaroundTime: 24
-      };
-      
-      // Store in selected result's notes as JSON
       const resultId = selectedResult?.id;
       if (resultId) {
         const existingNotes = resultForm[resultId]?.notes || '';
         const customEntry = `\n[Custom Test] ${customTestForm.name}: ${customTestForm.referenceRange || 'N/A'}`;
         handleResultChange(resultId, 'notes', existingNotes + customEntry);
       }
-      
       setShowCustomForm(false);
       setCustomTestForm({ name: '', unit: '', referenceRange: '', isFasting: false });
     } catch (err) {
@@ -210,19 +196,20 @@ const LabTech = () => {
             >
               ⏳ المعلقة ({pendingResults.length})
             </button>
-            <button 
-              onClick={() => { setActiveTab('catalog'); setSelectedResult(null); }}
-              className={`px-4 py-2 rounded-lg ${activeTab === 'catalog' ? 'bg-red-100 text-red-700' : 'bg-gray-100 hover:bg-gray-200'}`}
-              type="button"
-            >
-              📚 كتالوج الفحوصات
-            </button>
+            {hasRole(['ADMIN', 'LAB_TECH']) && (
+              <button 
+                onClick={() => { setActiveTab('catalog'); setSelectedResult(null); }}
+                className={`px-4 py-2 rounded-lg ${activeTab === 'catalog' ? 'bg-red-100 text-red-700' : 'bg-gray-100 hover:bg-gray-200'}`}
+                type="button"
+              >
+                ⚙️ إدارة الكتالوج
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-6">
             <AlertCircle className="w-5 h-5" />
@@ -279,6 +266,7 @@ const LabTech = () => {
                     selectedResult?.id === result.id ? 'ring-2 ring-red-500' : 'hover:shadow-md'
                   }`}
                   onClick={() => setSelectedResult(result)}
+                  type="button"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -327,7 +315,6 @@ const LabTech = () => {
                   </div>
                   
                   <div className="p-6 space-y-4">
-                    {/* Reference Range Info */}
                     {selectedResult.referenceRange && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <p className="text-sm text-blue-800">
@@ -339,7 +326,6 @@ const LabTech = () => {
                       </div>
                     )}
 
-                    {/* Result Input */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">النتيجة *</label>
                       <div className="flex gap-2">
@@ -360,7 +346,6 @@ const LabTech = () => {
                       </div>
                     </div>
 
-                    {/* Abnormal Checkbox with Auto-Detect */}
                     <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                       <input 
                         type="checkbox"
@@ -376,7 +361,6 @@ const LabTech = () => {
                       )}
                     </label>
 
-                    {/* Notes */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
                       <textarea 
@@ -388,7 +372,6 @@ const LabTech = () => {
                       />
                     </div>
 
-                    {/* Add Custom Test Button */}
                     <button 
                       onClick={() => setShowCustomForm(true)}
                       className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
@@ -398,7 +381,6 @@ const LabTech = () => {
                       إضافة فحص مخصص (غير موجود في الكتالوج)
                     </button>
 
-                    {/* Custom Test Form Modal */}
                     {showCustomForm && (
                       <div className="bg-gray-50 rounded-lg p-4 border">
                         <h4 className="font-medium text-gray-800 mb-3">بيانات الفحص المخصص</h4>
@@ -445,7 +427,6 @@ const LabTech = () => {
                     )}
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="p-6 border-t bg-gray-50 flex gap-3 sticky bottom-0">
                     <button 
                       onClick={() => saveResult(selectedResult.id)}
@@ -477,10 +458,10 @@ const LabTech = () => {
             )}
           </div>
         ) : (
-          // 📚 LAB TEST CATALOG (Admin-managed, view-only for tech)
+          // 📚 LAB TEST CATALOG MANAGEMENT
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b">
-              <div className="relative">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="relative flex-1 max-w-md">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input 
                   type="text" 
@@ -490,6 +471,16 @@ const LabTech = () => {
                   className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
+              {hasRole(['ADMIN', 'LAB_TECH']) && (
+                <button 
+                  onClick={() => navigate('/lab-catalog')}
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                  type="button"
+                >
+                  <Settings className="w-4 h-4" />
+                  إدارة متقدمة
+                </button>
+              )}
             </div>
             {labTests.filter(t => 
               t.name?.toLowerCase().includes(search.toLowerCase()) || 
@@ -508,7 +499,8 @@ const LabTech = () => {
                       <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">الرمز</th>
                       <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">القسم</th>
                       <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المدى المرجعي</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">معلومات</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">الحالة</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -516,7 +508,7 @@ const LabTech = () => {
                       t.name?.toLowerCase().includes(search.toLowerCase()) || 
                       t.code?.toLowerCase().includes(search.toLowerCase())
                     ).map((test) => (
-                      <tr key={test.code} className="hover:bg-gray-50">
+                      <tr key={test.code} className={`hover:bg-gray-50 ${!test.isActive ? 'opacity-60' : ''}`}>
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-800">{test.name}</p>
                           <p className="text-xs text-gray-500">{test.description || '-'}</p>
@@ -525,9 +517,18 @@ const LabTech = () => {
                         <td className="px-4 py-3 text-sm text-gray-600">{test.category}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{test.referenceRange || '-'}</td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2 text-xs">
-                            {test.isFasting && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">صيام</span>}
-                            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">{test.turnaroundTime}س</span>
+                          <span className={`inline-block px-2 py-1 rounded text-xs ${test.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {test.isActive ? 'مفعل' : 'معطل'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            {hasRole(['ADMIN', 'LAB_TECH']) && (
+                              <>
+                                <button onClick={() => navigate(`/lab-catalog?edit=${test.id}`)} className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded" type="button" title="تعديل"><Edit className="w-4 h-4" /></button>
+                                {hasRole('ADMIN') && <button onClick={() => {}} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" type="button" title="حذف"><Trash2 className="w-4 h-4" /></button>}
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
