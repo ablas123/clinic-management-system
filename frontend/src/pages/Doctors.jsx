@@ -1,9 +1,9 @@
-// File: frontend/src/pages/Doctors.jsx - PRODUCTION READY (FIXED)
+// File: frontend/src/pages/Doctors.jsx - FINAL FIXED VERSION
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Stethoscope, Plus, Search, Edit, Trash2, ArrowLeft, Loader2, AlertCircle, X, User, Phone, Mail, CheckCircle, XCircle } from 'lucide-react';
+import { Stethoscope, Plus, Search, Edit, Trash2, ArrowLeft, Loader2, AlertCircle, X, User, Mail, CheckCircle, XCircle } from 'lucide-react';
 
 const Doctors = () => {
   const { logout } = useAuth();
@@ -38,12 +38,16 @@ const Doctors = () => {
     try {
       setLoading(true);
       setError('');
+      
       const response = await api.get(`/doctors?search=${search}`);
+      
       if (response.data?.success) {
+        // ✅ دعم كل أشكال الاستجابة
         const data = response.data.data?.doctors || response.data['data']?.doctors || [];
         setDoctors(data);
       }
     } catch (err) {
+      console.error('Fetch doctors error:', err);
       setError(err.message || 'فشل تحميل الأطباء');
       if (err.response?.status === 401) {
         logout();
@@ -61,8 +65,10 @@ const Doctors = () => {
 
     try {
       if (editingId) {
+        // تحديث التوفر فقط
         await api.patch(`/doctors/${editingId}/availability`, { isAvailable: formData.isAvailable });
       } else {
+        // إنشاء طبيب جديد
         if (!formData.password) {
           setError('كلمة المرور مطلوبة للأطباء الجدد');
           setSubmitting(false);
@@ -80,6 +86,7 @@ const Doctors = () => {
       });
       fetchDoctors();
     } catch (err) {
+      console.error('Submit doctor error:', err);
       setError(err.response?.data?.message || (editingId ? 'فشل التحديث' : 'فشل الإضافة'));
     } finally {
       setSubmitting(false);
@@ -105,7 +112,7 @@ const Doctors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الطبيب؟')) return;
+    if (!window.confirm('هل أنت متأكد من حذف هذا الطبيب؟ لا يمكن التراجع.')) return;
     try {
       await api.delete(`/doctors/${id}`);
       setDoctors(doctors.filter(d => d.id !== id));
@@ -198,6 +205,7 @@ const Doctors = () => {
             <div className="p-8 text-center text-gray-500">
               <Stethoscope className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>لا يوجد أطباء مسجلين</p>
+              <button onClick={() => setShowForm(true)} className="mt-4 text-green-600 hover:text-green-700 font-medium" type="button">+ أضف أول طبيب</button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -223,7 +231,7 @@ const Doctors = () => {
                             <User className="w-5 h-5 text-green-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-800">{doctor.user?.firstName} {doctor.user?.lastName}</p>
+                            <p className="font-medium text-gray-800">{doctor.user?.firstName || '-'} {doctor.user?.lastName || ''}</p>
                             <p className="text-xs text-gray-500 flex items-center gap-1"><Mail className="w-3 h-3" /> {doctor.user?.email || '-'}</p>
                           </div>
                         </div>
