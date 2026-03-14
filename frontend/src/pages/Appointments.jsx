@@ -1,12 +1,12 @@
-// File: frontend/src/pages/Appointments.jsx
+// File: frontend/src/pages/Appointments.jsx - PRODUCTION READY (FIXED)
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Calendar, Plus, Trash2, Search, ArrowLeft, Loader2, AlertCircle, X, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Calendar, Plus, Trash2, Search, ArrowLeft, Loader2, AlertCircle, X, CheckCircle, XCircle, Clock, User } from 'lucide-react';
 
 const Appointments = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
   
   const [appointments, setAppointments] = useState([]);
@@ -37,15 +37,24 @@ const Appointments = () => {
       
       const [aptRes, docRes, patRes] = await Promise.all([
         api.get('/appointments'),
-        api.get('/doctors'),
-        api.get('/patients')
+        hasRole(['ADMIN', 'RECEPTIONIST']) ? api.get('/doctors') : Promise.resolve({ data: { success: true, data: { doctors: [] } } }),
+        hasRole(['ADMIN', 'RECEPTIONIST']) ? api.get('/patients') : Promise.resolve({ data: { success: true, data: { patients: [] } } })
       ]);
       
-      if (aptRes.data?.success) setAppointments(aptRes.data['data']?.appointments || []);
-      if (docRes.data?.success) setDoctors(docRes.data['data']?.doctors || []);
-      if (patRes.data?.success) setPatients(patRes.data['data']?.patients || []);
+      if (aptRes.data?.success) {
+        const data = aptRes.data.data?.appointments || aptRes.data['data']?.appointments || [];
+        setAppointments(data);
+      }
+      if (docRes.data?.success) {
+        const data = docRes.data.data?.doctors || docRes.data['data']?.doctors || [];
+        setDoctors(data);
+      }
+      if (patRes.data?.success) {
+        const data = patRes.data.data?.patients || patRes.data['data']?.patients || [];
+        setPatients(data);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'خطأ في الاتصال');
+      setError(err.message || 'خطأ في الاتصال');
       if (err.response?.status === 401) {
         logout();
         navigate('/login');
@@ -71,7 +80,8 @@ const Appointments = () => {
       });
 
       if (response.data?.success) {
-        setAppointments([response.data['data']?.appointment, ...appointments]);
+        const newApt = response.data.data?.appointment || response.data['data']?.appointment;
+        setAppointments([newApt, ...appointments]);
         setShowForm(false);
         setFormData({ patientId: '', doctorId: '', date: '', startTime: '', type: 'CHECKUP', reason: '' });
       }
@@ -137,7 +147,7 @@ const Appointments = () => {
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-gray-100 rounded-lg">
+            <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-gray-100 rounded-lg" type="button">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2">
@@ -145,8 +155,8 @@ const Appointments = () => {
               <h1 className="text-xl font-bold text-gray-800">إدارة المواعيد</h1>
             </div>
           </div>
-          {user?.role !== 'DOCTOR' && (
-            <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+          {hasRole(['ADMIN', 'RECEPTIONIST']) && (
+            <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg" type="button">
               <Plus className="w-5 h-5" />
               <span className="hidden sm:inline">حجز موعد</span>
             </button>
@@ -159,7 +169,7 @@ const Appointments = () => {
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-6">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
-            <button onClick={() => setError('')} className="p-1 hover:bg-red-100 rounded"><X className="w-4 h-4" /></button>
+            <button onClick={() => setError('')} className="p-1 hover:bg-red-100 rounded" type="button"><X className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -167,27 +177,17 @@ const Appointments = () => {
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">حجز موعد جديد</h2>
-              <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+              <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded" type="button"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <select 
-                value={formData.patientId} 
-                onChange={(e) => setFormData({...formData, patientId: e.target.value})} 
-                className="border border-gray-300 rounded-lg px-4 py-2" 
-                required
-              >
+              <select value={formData.patientId} onChange={(e) => setFormData({...formData, patientId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
                 <option value="">اختر المريض</option>
                 {patients.map(p => (
                   <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
                 ))}
               </select>
 
-              <select 
-                value={formData.doctorId} 
-                onChange={(e) => setFormData({...formData, doctorId: e.target.value})} 
-                className="border border-gray-300 rounded-lg px-4 py-2" 
-                required
-              >
+              <select value={formData.doctorId} onChange={(e) => setFormData({...formData, doctorId: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" required>
                 <option value="">اختر الطبيب</option>
                 {doctors.map(d => (
                   <option key={d.id} value={d.id}>{d.user?.firstName} {d.user?.lastName} - {d.specialty}</option>
@@ -259,12 +259,12 @@ const Appointments = () => {
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
                           {apt.status === 'SCHEDULED' && (
-                            <button onClick={() => updateStatus(apt.id, 'CONFIRMED')} className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded" title="تأكيد"><CheckCircle className="w-4 h-4" /></button>
+                            <button onClick={() => updateStatus(apt.id, 'CONFIRMED')} className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded" type="button" title="تأكيد"><CheckCircle className="w-4 h-4" /></button>
                           )}
                           {apt.status !== 'CANCELLED' && apt.status !== 'COMPLETED' && (
-                            <button onClick={() => updateStatus(apt.id, 'CANCELLED')} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="إلغاء"><XCircle className="w-4 h-4" /></button>
+                            <button onClick={() => updateStatus(apt.id, 'CANCELLED')} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" type="button" title="إلغاء"><XCircle className="w-4 h-4" /></button>
                           )}
-                          <button onClick={() => handleDelete(apt.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" title="حذف"><Trash2 className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(apt.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" type="button" title="حذف"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </td>
                     </tr>
