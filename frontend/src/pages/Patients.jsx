@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Patients.jsx - PRODUCTION READY
+// File: frontend/src/pages/Patients.jsx - PRODUCTION READY (FIXED)
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -43,11 +43,13 @@ const Patients = () => {
       const response = await api.get(`/patients?page=${pagination.page}&limit=${pagination.limit}&search=${search}`);
       
       if (response.data?.success) {
-        setPatients(response.data['data']?.patients || []);
+        const data = response.data.data?.patients || response.data['data']?.patients || [];
+        const pagination = response.data.data?.pagination || response.data['data']?.pagination || {};
+        setPatients(data);
         setPagination(prev => ({
           ...prev,
-          total: response.data['data']?.pagination?.total || 0,
-          pages: response.data['data']?.pagination?.pages || 0
+          total: pagination.total || 0,
+          pages: pagination.pages || 0
         }));
       }
     } catch (err) {
@@ -108,8 +110,7 @@ const Patients = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا المريض؟ لا يمكن التراجع عن هذا الإجراء.')) return;
-    
+    if (!window.confirm('هل أنت متأكد من حذف هذا المريض؟')) return;
     try {
       await api.delete(`/patients/${id}`);
       setPatients(patients.filter(p => p.id !== id));
@@ -129,11 +130,8 @@ const Patients = () => {
     return labels[gender] || gender;
   };
 
-  const filteredPatients = patients; // Already filtered by backend search
-
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
-      {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -146,11 +144,7 @@ const Patients = () => {
             </div>
           </div>
           {hasRole(['ADMIN', 'RECEPTIONIST']) && (
-            <button 
-              onClick={() => { setShowForm(true); setEditingId(null); }} 
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-              type="button"
-            >
+            <button onClick={() => { setShowForm(true); setEditingId(null); }} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg" type="button">
               <Plus className="w-5 h-5" />
               <span className="hidden sm:inline">إضافة مريض</span>
             </button>
@@ -159,7 +153,6 @@ const Patients = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-6">
             <AlertCircle className="w-5 h-5" />
@@ -168,7 +161,6 @@ const Patients = () => {
           </div>
         )}
 
-        {/* Add/Edit Form */}
         {showForm && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -213,144 +205,71 @@ const Patients = () => {
           </div>
         )}
 
-        {/* Search */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <form onSubmit={handleSearch} className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="بحث باسم المريض، الهاتف، أو البريد..." 
-              value={search} 
-              onChange={(e) => setSearch(e.target.value)} 
-              className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg"
-            />
-            <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-700" type="button">
-              بحث
-            </button>
+            <input type="text" placeholder="بحث باسم المريض، الهاتف، أو البريد..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg" />
+            <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700" type="button">بحث</button>
           </form>
         </div>
 
-        {/* Patients List */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500 mb-2" />
-              <p className="text-gray-600">جاري تحميل المرضى...</p>
-            </div>
-          ) : filteredPatients.length === 0 ? (
+            <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500 mb-2" /><p className="text-gray-600">جاري تحميل المرضى...</p></div>
+          ) : patients.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>{search ? 'لا توجد نتائج' : 'لا يوجد مرضى مسجلين'}</p>
-              {hasRole(['ADMIN', 'RECEPTIONIST']) && !search && (
-                <button onClick={() => setShowForm(true)} className="mt-4 text-blue-600 hover:text-blue-700 font-medium" type="button">
-                  + أضف أول مريض
-                </button>
-              )}
             </div>
           ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">#</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المريض</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">الهاتف</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden lg:table-cell">البريد</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">الجنس</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">فصيلة الدم</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">#</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المريض</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden md:table-cell">الهاتف</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden lg:table-cell">البريد</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">الجنس</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700 hidden sm:table-cell">فصيلة الدم</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {patients.map((patient, index) => (
+                    <tr key={patient.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-600">{((pagination.page - 1) * pagination.limit) + index + 1}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800">{patient.firstName} {patient.lastName}</p>
+                            {patient.dateOfBirth && <p className="text-xs text-gray-500"><Calendar className="w-3 h-3 inline ml-1" />{new Date(patient.dateOfBirth).toLocaleDateString('ar-EG')}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell"><Phone className="w-3 h-3 inline ml-1 text-gray-400" />{patient.phone || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden lg:table-cell"><Mail className="w-3 h-3 inline ml-1 text-gray-400" />{patient.email || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{getGenderLabel(patient.gender) || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{patient.bloodType ? <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium"><Droplet className="w-3 h-3 inline ml-1" />{patient.bloodType}</span> : '-'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {hasRole(['ADMIN', 'RECEPTIONIST']) && (
+                            <>
+                              <button onClick={() => handleEdit(patient)} className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded" type="button" title="تعديل"><Edit className="w-4 h-4" /></button>
+                              {hasRole('ADMIN') && <button onClick={() => handleDelete(patient.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" type="button" title="حذف"><Trash2 className="w-4 h-4" /></button>}
+                            </>
+                          )}
+                          <button onClick={() => navigate(`/appointments?patient=${patient.id}`)} className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded" type="button" title="مواعيد"><Calendar className="w-4 h-4" /></button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredPatients.map((patient, index) => (
-                      <tr key={patient.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">{((pagination.page - 1) * pagination.limit) + index + 1}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-800">{patient.firstName} {patient.lastName}</p>
-                              {patient.dateOfBirth && (
-                                <p className="text-xs text-gray-500">
-                                  <Calendar className="w-3 h-3 inline ml-1" />
-                                  {new Date(patient.dateOfBirth).toLocaleDateString('ar-EG')}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">
-                          <Phone className="w-3 h-3 inline ml-1 text-gray-400" />
-                          {patient.phone || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 hidden lg:table-cell">
-                          <Mail className="w-3 h-3 inline ml-1 text-gray-400" />
-                          {patient.email || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{getGenderLabel(patient.gender) || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">
-                          {patient.bloodType && (
-                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">
-                              <Droplet className="w-3 h-3 inline ml-1" />
-                              {patient.bloodType}
-                            </span>
-                          ) || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            {hasRole(['ADMIN', 'RECEPTIONIST']) && (
-                              <>
-                                <button onClick={() => handleEdit(patient)} className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded" type="button" title="تعديل">
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                {hasRole('ADMIN') && (
-                                  <button onClick={() => handleDelete(patient.id)} className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded" type="button" title="حذف">
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                            <button onClick={() => navigate(`/appointments?patient=${patient.id}`)} className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded" type="button" title="مواعيد المريض">
-                              <Calendar className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              {pagination.pages > 1 && (
-                <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-                  <p className="text-sm text-gray-600">
-                    عرض {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} من {pagination.total} مريض
-                  </p>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                      disabled={pagination.page === 1}
-                      className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-                      type="button"
-                    >
-                      السابق
-                    </button>
-                    <button 
-                      onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                      disabled={pagination.page === pagination.pages}
-                      className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-                      type="button"
-                    >
-                      التالي
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </main>
