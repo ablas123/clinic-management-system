@@ -1,4 +1,4 @@
-// File: frontend/src/App.jsx - UPDATED with medical-records route
+// File: frontend/src/App.jsx - COMPLETE & PRODUCTION READY
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -13,17 +13,15 @@ import LabResults from './pages/LabResults';
 import LabCatalog from './pages/LabCatalog';
 import MyPatients from './pages/MyPatients';
 import MyAppointments from './pages/MyAppointments';
-import MedicalRecords from './pages/MedicalRecords'; // ✅ NEW
+import MedicalRecords from './pages/MedicalRecords';
 import Patients from './pages/Patients';
 import Doctors from './pages/Doctors';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
-// Placeholder pages
 const Confirmations = () => <div className="p-8 text-center">📞 تأكيد المواعيد - قيد التطوير</div>;
 const Print = () => <div className="p-8 text-center">🖨️ الطباعة - قيد التطوير</div>;
 
-// Protected Route
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>;
@@ -31,7 +29,6 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Role Route
 const RoleRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>;
@@ -39,7 +36,6 @@ const RoleRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
-// Routes definition
 function AppRoutes() {
   return (
     <Routes>
@@ -47,32 +43,24 @@ function AppRoutes() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
       <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-      
-      {/* Lab Module */}
       <Route path="/lab" element={<RoleRoute allowedRoles={['DOCTOR']}><LabDoctor /></RoleRoute>} />
       <Route path="/lab-tech" element={<RoleRoute allowedRoles={['LAB_TECH']}><LabTech /></RoleRoute>} />
       <Route path="/lab-results" element={<RoleRoute allowedRoles={['DOCTOR', 'LAB_TECH']}><LabResults /></RoleRoute>} />
       <Route path="/lab-catalog" element={<RoleRoute allowedRoles={['ADMIN', 'LAB_TECH']}><LabCatalog /></RoleRoute>} />
-      
-      {/* Doctor */}
       <Route path="/my-patients" element={<RoleRoute allowedRoles={['DOCTOR']}><MyPatients /></RoleRoute>} />
       <Route path="/my-appointments" element={<RoleRoute allowedRoles={['DOCTOR']}><MyAppointments /></RoleRoute>} />
-      <Route path="/medical-records" element={<RoleRoute allowedRoles={['DOCTOR']}><MedicalRecords /></RoleRoute>} /> {/* ✅ NEW */}
-      
-      {/* Admin/Reception */}
+      <Route path="/medical-records" element={<RoleRoute allowedRoles={['DOCTOR']}><MedicalRecords /></RoleRoute>} />
       <Route path="/patients" element={<RoleRoute allowedRoles={['ADMIN', 'RECEPTIONIST']}><Patients /></RoleRoute>} />
       <Route path="/doctors" element={<RoleRoute allowedRoles={['ADMIN']}><Doctors /></RoleRoute>} />
       <Route path="/reports" element={<RoleRoute allowedRoles={['ADMIN']}><Reports /></RoleRoute>} />
       <Route path="/settings" element={<RoleRoute allowedRoles={['ADMIN']}><Settings /></RoleRoute>} />
       <Route path="/confirmations" element={<RoleRoute allowedRoles={['RECEPTIONIST']}><Confirmations /></RoleRoute>} />
       <Route path="/print" element={<RoleRoute allowedRoles={['RECEPTIONIST']}><Print /></RoleRoute>} />
-      
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
 
-// Main App - BrowserRouter OUTSIDE AuthProvider
 function App() {
   return (
     <BrowserRouter>
