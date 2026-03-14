@@ -1,32 +1,83 @@
-// File: frontend/src/App.jsx - COMPLETE & FINAL
+// File: frontend/src/App.jsx - COMPLETE & FINAL (All Routes)
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
-// Pages - Public
+// ===========================================
+// PAGES - PUBLIC
+// ===========================================
 import Login from './pages/Login';
 
-// Pages - Main
+// ===========================================
+// PAGES - MAIN (All Authenticated Users)
+// ===========================================
 import Dashboard from './pages/Dashboard';
 import Appointments from './pages/Appointments';
 import Invoices from './pages/Invoices';
 import Lab from './pages/Lab';
 
-// Pages - Doctor (Real Working)
+// ===========================================
+// PAGES - DOCTOR (Real Working)
+// ===========================================
 import MyPatients from './pages/MyPatients';
 import MyAppointments from './pages/MyAppointments';
 import LabResults from './pages/LabResults';
+import MedicalRecords from './pages/MedicalRecords';
 
-// Pages - Placeholder (يمكن تطويرها لاحقاً)
-const MedicalRecords = () => <div className="p-8 text-center text-gray-600">📋 السجلات الطبية - قيد التطوير</div>;
-const LabTests = () => <div className="p-8 text-center text-gray-600">🧪 الفحوصات - قيد التطوير</div>;
-const LabRequests = () => <div className="p-8 text-center text-gray-600">📝 طلبات المختبر - قيد التطوير</div>;
-const LabReports = () => <div className="p-8 text-center text-gray-600">🖨️ تقارير المختبر - قيد التطوير</div>;
-const Patients = () => <div className="p-8 text-center text-gray-600">👥 إدارة المرضى - قيد التطوير</div>;
-const Doctors = () => <div className="p-8 text-center text-gray-600">👨‍⚕️ إدارة الأطباء - قيد التطوير</div>;
-const Reports = () => <div className="p-8 text-center text-gray-600">📊 التقارير والإحصائيات - قيد التطوير</div>;
-const Settings = () => <div className="p-8 text-center text-gray-600">⚙️ الإعدادات - قيد التطوير</div>;
-const Confirmations = () => <div className="p-8 text-center text-gray-600">📞 تأكيد المواعيد - قيد التطوير</div>;
-const Print = () => <div className="p-8 text-center text-gray-600">🖨️ الطباعة - قيد التطوير</div>;
+// ===========================================
+// PAGES - ADMIN / RECEPTIONIST (Production Ready)
+// ===========================================
+import Patients from './pages/Patients';
+import Doctors from './pages/Doctors';
+import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+
+// ===========================================
+// PAGES - LAB TECH (Placeholder - Can be enhanced)
+// ===========================================
+const LabTests = () => (
+  <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">🧪 فحوصات المختبر</h1>
+      <p className="text-gray-600">هذه الصفحة متاحة لفنيي المختبر - يمكن تطويرها لاحقاً</p>
+    </div>
+  </div>
+);
+
+const LabRequests = () => (
+  <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">📝 طلبات المختبر</h1>
+      <p className="text-gray-600">هذه الصفحة متاحة لفنيي المختبر والأطباء - يمكن تطويرها لاحقاً</p>
+    </div>
+  </div>
+);
+
+const LabReports = () => (
+  <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">🖨️ تقارير المختبر</h1>
+      <p className="text-gray-600">هذه الصفحة متاحة لفنيي المختبر - يمكن تطويرها لاحقاً</p>
+    </div>
+  </div>
+);
+
+const Confirmations = () => (
+  <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">📞 تأكيد المواعيد</h1>
+      <p className="text-gray-600">هذه الصفحة متاحة لموظفي الاستقبال - يمكن تطويرها لاحقاً</p>
+    </div>
+  </div>
+);
+
+const Print = () => (
+  <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">🖨️ الطباعة</h1>
+      <p className="text-gray-600">هذه الصفحة متاحة لموظفي الاستقبال - يمكن تطويرها لاحقاً</p>
+    </div>
+  </div>
+);
 
 // ===========================================
 // ✅ مكون حماية المسارات (يتطلب تسجيل دخول)
@@ -77,7 +128,7 @@ const RoleRoute = ({ children, allowedRoles }) => {
 };
 
 // ===========================================
-// ✅ تعريف جميع المسارات
+// ✅ تعريف جميع المسارات (18 صفحة)
 // ===========================================
 function AppRoutes() {
   return (
@@ -88,120 +139,89 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
 
       {/* ===========================================
-          MAIN DASHBOARD
+          MAIN DASHBOARD (All Authenticated)
       =========================================== */}
       <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
+        <ProtectedRoute><Dashboard /></ProtectedRoute>
       } />
 
       {/* ===========================================
-          SHARED PAGES (Multiple Roles)
+          SHARED PAGES (All Authenticated)
       =========================================== */}
       <Route path="/appointments" element={
-        <ProtectedRoute>
-          <Appointments />
-        </ProtectedRoute>
+        <ProtectedRoute><Appointments /></ProtectedRoute>
       } />
       
       <Route path="/invoices" element={
-        <ProtectedRoute>
-          <Invoices />
-        </ProtectedRoute>
+        <ProtectedRoute><Invoices /></ProtectedRoute>
       } />
       
       <Route path="/lab" element={
-        <ProtectedRoute>
-          <Lab />
-        </ProtectedRoute>
+        <ProtectedRoute><Lab /></ProtectedRoute>
       } />
 
       {/* ===========================================
           DOCTOR ROUTES (Real Working Pages)
       =========================================== */}
       <Route path="/my-patients" element={
-        <RoleRoute allowedRoles={['DOCTOR']}>
-          <MyPatients />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['DOCTOR']}><MyPatients /></RoleRoute>
       } />
       
       <Route path="/my-appointments" element={
-        <RoleRoute allowedRoles={['DOCTOR']}>
-          <MyAppointments />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['DOCTOR']}><MyAppointments /></RoleRoute>
       } />
       
       <Route path="/lab-results" element={
-        <RoleRoute allowedRoles={['DOCTOR', 'LAB_TECH']}>
-          <LabResults />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['DOCTOR', 'LAB_TECH']}><LabResults /></RoleRoute>
       } />
       
       <Route path="/medical-records" element={
-        <RoleRoute allowedRoles={['DOCTOR']}>
-          <MedicalRecords />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['DOCTOR']}><MedicalRecords /></RoleRoute>
       } />
 
       {/* ===========================================
           LAB TECH ROUTES
       =========================================== */}
       <Route path="/lab-tests" element={
-        <RoleRoute allowedRoles={['LAB_TECH']}>
-          <LabTests />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['LAB_TECH']}><LabTests /></RoleRoute>
       } />
       
       <Route path="/lab-requests" element={
-        <RoleRoute allowedRoles={['LAB_TECH', 'DOCTOR']}>
-          <LabRequests />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['LAB_TECH', 'DOCTOR']}><LabRequests /></RoleRoute>
       } />
       
       <Route path="/lab-reports" element={
-        <RoleRoute allowedRoles={['LAB_TECH']}>
-          <LabReports />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['LAB_TECH']}><LabReports /></RoleRoute>
       } />
 
       {/* ===========================================
-          ADMIN / RECEPTIONIST ROUTES
+          ADMIN / RECEPTIONIST ROUTES (Production Ready)
       =========================================== */}
       <Route path="/patients" element={
-        <RoleRoute allowedRoles={['ADMIN', 'RECEPTIONIST']}>
-          <Patients />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['ADMIN', 'RECEPTIONIST']}><Patients /></RoleRoute>
       } />
       
       <Route path="/doctors" element={
-        <RoleRoute allowedRoles={['ADMIN']}>
-          <Doctors />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['ADMIN']}><Doctors /></RoleRoute>
       } />
       
       <Route path="/reports" element={
-        <RoleRoute allowedRoles={['ADMIN']}>
-          <Reports />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['ADMIN']}><Reports /></RoleRoute>
       } />
       
       <Route path="/settings" element={
-        <RoleRoute allowedRoles={['ADMIN']}>
-          <Settings />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['ADMIN']}><Settings /></RoleRoute>
       } />
-      
+
+      {/* ===========================================
+          RECEPTIONIST ROUTES (Placeholder)
+      =========================================== */}
       <Route path="/confirmations" element={
-        <RoleRoute allowedRoles={['RECEPTIONIST']}>
-          <Confirmations />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['RECEPTIONIST']}><Confirmations /></RoleRoute>
       } />
       
       <Route path="/print" element={
-        <RoleRoute allowedRoles={['RECEPTIONIST']}>
-          <Print />
-        </RoleRoute>
+        <RoleRoute allowedRoles={['RECEPTIONIST']}><Print /></RoleRoute>
       } />
 
       {/* ===========================================
