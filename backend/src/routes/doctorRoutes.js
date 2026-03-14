@@ -1,4 +1,4 @@
-// File: backend/src/routes/doctorRoutes.js - PRODUCTION READY
+// File: backend/src/routes/doctorRoutes.js - FINAL FIXED VERSION
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
@@ -68,26 +68,30 @@ router.get('/', authenticate, authorize('ADMIN', 'RECEPTIONIST'), async (req, re
 });
 
 // ===========================================
-// CREATE DOCTOR
+// CREATE DOCTOR - ✅ خطوتين: User ثم Doctor
 // ===========================================
 router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, specialty, licenseNumber, bio, consultationFee, maxPatientsPerDay } = req.body;
 
+    // التحقق من الحقول المطلوبة
     if (!firstName || !lastName || !email || !password || !specialty || !licenseNumber) {
-      return res.status(400).json({ success: false, message: 'الحقول المطلوبة: الاسم، البريد، كلمة المرور، التخصص، رقم الترخيص' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'الحقول المطلوبة: الاسم الأول، اسم العائلة، البريد، كلمة المرور، التخصص، رقم الترخيص' 
+      });
     }
 
-    // Check if email exists
+    // التحقق من عدم وجود البريد مسبقاً
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'البريد الإلكتروني مستخدم بالفعل' });
     }
 
-    // Hash password
+    // تشفير كلمة المرور
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user first
+    // ✅ الخطوة 1: إنشاء المستخدم
     const userPayload = {
       email,
       password: hashedPassword,
@@ -97,9 +101,10 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       role: 'DOCTOR',
       status: 'ACTIVE'
     };
-    const user = await prisma.user.create({ [DATA_KEY]: userPayload });
+    const userConfig = { [DATA_KEY]: userPayload };
+    const user = await prisma.user.create(userConfig);
 
-    // Create doctor profile
+    // ✅ الخطوة 2: إنشاء ملف الطبيب
     const doctorPayload = {
       userId: user.id,
       specialty,
@@ -108,10 +113,16 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       consultationFee: consultationFee ? parseFloat(consultationFee) : 0,
       maxPatientsPerDay: maxPatientsPerDay ? parseInt(maxPatientsPerDay) : 20
     };
-    const doctor = await prisma.doctor.create({ [DATA_KEY]: doctorPayload });
+    const doctorConfig = { [DATA_KEY]: doctorPayload };
+    const doctor = await prisma.doctor.create(doctorConfig);
 
-    const responseData = { success: true, message: 'تم إضافة الطبيب بنجاح', ['data']: { doctor } };
+    const responseData = { 
+      success: true, 
+      message: 'تم إضافة الطبيب بنجاح', 
+      ['data']: { doctor } 
+    };
     res.status(201).json(responseData);
+
   } catch (e) {
     console.error('Create doctor error:', e);
     res.status(500).json({ success: false, message: e.message });
@@ -126,7 +137,7 @@ router.patch('/:id/availability', authenticate, async (req, res) => {
     const { id } = req.params;
     const { isAvailable } = req.body;
 
-    // Check authorization
+    // التحقق من الصلاحية
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { id, userId: req.user.userId } });
       if (!doctor) {
@@ -137,10 +148,8 @@ router.patch('/:id/availability', authenticate, async (req, res) => {
     }
 
     const updatePayload = { isAvailable: isAvailable === true || isAvailable === 'true' };
-    const doctor = await prisma.doctor.update({
-      where: { id },
-      [DATA_KEY]: updatePayload
-    });
+    const updateConfig = { where: { id }, [DATA_KEY]: updatePayload };
+    const doctor = await prisma.doctor.update(updateConfig);
 
     const responseData = { success: true, message: 'تم تحديث الحالة', ['data']: { doctor } };
     res.json(responseData);
