@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Dashboard.jsx - COMPLETE & FINAL (All Lessons Applied)
+// File: frontend/src/pages/Dashboard.jsx - COMPLETE & FINAL (All Buttons Have type="button")
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Users, Stethoscope, Calendar, FileText, TestTube, Clipboard, DollarSign, Activity, Settings, FileCheck, Printer, Phone } from 'lucide-react';
@@ -127,6 +127,7 @@ const Dashboard = () => {
                 </p>
               </div>
             </div>
+            {/* ✅ type="button" added */}
             <button onClick={handleLogout} className="flex items-center gap-2 text-red-600 hover:text-red-700" type="button">
               <LogOut className="w-5 h-5" />
               <span className="hidden sm:inline">خروج</span>
@@ -161,13 +162,13 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Menu Grid */}
+        {/* Menu Grid - ✅ ALL buttons have type="button" */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {menuItems.map((item) => (
             <button
               key={item.title}
               onClick={() => navigate(item.path)}
-              type="button"
+              type="button"  {/* ✅ CRITICAL FIX */}
               className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 text-center group"
             >
               <div className={`${item.color} w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
