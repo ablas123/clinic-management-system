@@ -1,23 +1,21 @@
-// File: backend/src/routes/labRoutes.js - COMPLETE & HL7-COMPLIANT
+// File: backend/src/routes/labRoutes.js - COMPLETE & DATA_KEY COMPLIANT
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize, auditLog } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
-const DATA_KEY = 'data';
+const DATA_KEY = 'data'; // ✅ Critical: Avoid colon stripping
 
 // ===========================================
-// 🧪 LAB TESTS - Catalog Management (Admin/Lab Tech)
+// 🧪 LAB TESTS - Catalog Management
 // ===========================================
 
-// GET all lab tests (with isActive filter)
 router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'RECEPTIONIST'), async (req, res) => {
   try {
     const { page = 1, limit = 100, search, category, includeInactive = 'false' } = req.query;
     const where = {};
 
-    // Only show active tests by default (for doctors/patients)
     if (includeInactive !== 'true' || !['ADMIN', 'LAB_TECH'].includes(req.user?.role)) {
       where.isActive = true;
     }
@@ -42,7 +40,7 @@ router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'REC
       prisma.labTest.count({ where })
     ]);
 
-    // ✅ استخدام [DATA_KEY] لتجنب مشكلة :
+    // ✅ Use [DATA_KEY] to avoid colon stripping
     const responseData = {
       success: true,
       [DATA_KEY]: {
@@ -62,7 +60,6 @@ router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'REC
   }
 });
 
-// CREATE lab test (Admin/Lab Tech only)
 router.post('/tests', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
     const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime, description, isActive } = req.body;
@@ -71,7 +68,6 @@ router.post('/tests', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, 
       return res.status(400).json({ success: false, message: 'الاسم، الرمز، القسم، والسعر مطلوبة' });
     }
 
-    // Check code uniqueness
     const existing = await prisma.labTest.findUnique({ where: { code } });
     if (existing) {
       return res.status(400).json({ success: false, message: 'رمز الفحص مستخدم بالفعل' });
@@ -90,6 +86,7 @@ router.post('/tests', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, 
       isActive: isActive !== undefined ? isActive : true
     };
 
+    // ✅ Use [DATA_KEY] for Prisma create
     const labTest = await prisma.labTest.create({ [DATA_KEY]: testPayload });
     await auditLog(req, 'CREATE', 'LabTest', labTest.id, `Created: ${name}`);
 
@@ -101,7 +98,6 @@ router.post('/tests', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, 
   }
 });
 
-// UPDATE lab test (Admin/Lab Tech only)
 router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -112,7 +108,6 @@ router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (re
       return res.status(404).json({ success: false, message: 'الفحص غير موجود' });
     }
 
-    // If code is being changed, check uniqueness
     if (code && code !== existing.code) {
       const codeExists = await prisma.labTest.findUnique({ where: { code } });
       if (codeExists) {
@@ -133,6 +128,7 @@ router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (re
       isActive: isActive !== undefined ? isActive : existing.isActive
     };
 
+    // ✅ Use [DATA_KEY] for Prisma update
     const labTest = await prisma.labTest.update({
       where: { id },
       [DATA_KEY]: updatePayload
@@ -148,7 +144,6 @@ router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (re
   }
 });
 
-// SOFT DELETE / TOGGLE ACTIVE (Admin/Lab Tech only)
 router.patch('/tests/:id/active', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -159,12 +154,13 @@ router.patch('/tests/:id/active', authenticate, authorize('ADMIN', 'LAB_TECH'), 
       return res.status(404).json({ success: false, message: 'الفحص غير موجود' });
     }
 
+    // ✅ Use [DATA_KEY] for Prisma update
     const labTest = await prisma.labTest.update({
       where: { id },
       [DATA_KEY]: { isActive: isActive === true || isActive === 'true' }
     });
 
-    await auditLog(req, 'UPDATE', 'LabTest', id, `Active status: ${existing.isActive} → ${labTest.isActive}`);
+    await auditLog(req, 'UPDATE', 'LabTest', id, `Active: ${existing.isActive} → ${labTest.isActive}`);
 
     const responseData = { success: true, message: 'تم تحديث حالة الفحص', [DATA_KEY]: { labTest } };
     res.json(responseData);
@@ -175,10 +171,9 @@ router.patch('/tests/:id/active', authenticate, authorize('ADMIN', 'LAB_TECH'), 
 });
 
 // ===========================================
-// 📋 LAB REQUESTS - Doctor creates, Lab Tech processes
+// 📋 LAB REQUESTS
 // ===========================================
 
-// GET requests for current user
 router.get('/requests', authenticate, authorize('DOCTOR', 'LAB_TECH', 'ADMIN'), async (req, res) => {
   try {
     const { page = 1, limit = 20, status, patientId } = req.query;
@@ -187,7 +182,6 @@ router.get('/requests', authenticate, authorize('DOCTOR', 'LAB_TECH', 'ADMIN'), 
     if (status && status !== 'ALL') where.status = status;
     if (patientId) where.patientId = patientId;
 
-    // If DOCTOR, only show their requests
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
       if (doctor) where.doctorId = doctor.id;
@@ -236,7 +230,6 @@ router.get('/requests', authenticate, authorize('DOCTOR', 'LAB_TECH', 'ADMIN'), 
   }
 });
 
-// CREATE lab request (Doctor only) - HL7: Order Entry
 router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => {
   try {
     const { patientId, testCodes, priority, clinicalNotes } = req.body;
@@ -245,19 +238,16 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
       return res.status(400).json({ success: false, message: 'المريض ورموز الفحوصات مطلوبة' });
     }
 
-    // Verify patient exists
     const patient = await prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient) {
       return res.status(400).json({ success: false, message: 'المريض غير موجود' });
     }
 
-    // Verify doctor exists
     const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
     if (!doctor) {
       return res.status(403).json({ success: false, message: 'ملف الطبيب غير موجود' });
     }
 
-    // Verify tests exist by code (more stable than ID) and are ACTIVE
     const tests = await prisma.labTest.findMany({
       where: { code: { in: testCodes }, isActive: true }
     });
@@ -265,10 +255,8 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
       return res.status(400).json({ success: false, message: 'بعض رموز الفحوصات غير صالحة أو غير مفعلة' });
     }
 
-    // Calculate total price
     const totalAmount = tests.reduce((sum, t) => sum + parseFloat(t.price), 0);
 
-    // Create lab request (HL7: ORC segment equivalent)
     const requestPayload = {
       patientId,
       doctorId: doctor.id,
@@ -278,6 +266,7 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
       tests: { connect: tests.map(t => ({ id: t.id })) }
     };
 
+    // ✅ Use [DATA_KEY] for Prisma create
     const labRequest = await prisma.labRequest.create({
       [DATA_KEY]: requestPayload,
       include: { 
@@ -286,7 +275,6 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
       }
     });
 
-    // Create preliminary lab results for each test (HL7: OBR/OBX segments)
     const resultPayloads = tests.map(test => ({
       patientId,
       labTestId: test.id,
@@ -299,9 +287,9 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
       notes: null
     }));
 
+    // ✅ Use [DATA_KEY] for Prisma createMany
     await prisma.labResult.createMany({ [DATA_KEY]: {  resultPayloads } });
 
-    // Create invoice for lab tests (integrated billing)
     const invoicePayload = {
       patientId,
       totalAmount,
@@ -311,7 +299,6 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
     };
     await prisma.invoice.create({ [DATA_KEY]: invoicePayload });
 
-    // Audit log (HIPAA: Access logging)
     await auditLog(req, 'CREATE', 'LabRequest', labRequest.id, 
       `Ordered ${tests.length} tests for patient ${patientId}: ${testCodes.join(', ')}`);
 
@@ -328,7 +315,6 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
   }
 });
 
-// UPDATE request status (Lab Tech only)
 router.patch('/requests/:id/status', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -339,6 +325,7 @@ router.patch('/requests/:id/status', authenticate, authorize('LAB_TECH'), async 
       return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
     }
 
+    // ✅ Use [DATA_KEY] for Prisma update
     const request = await prisma.labRequest.update({
       where: { id },
       [DATA_KEY]: { 
@@ -359,15 +346,13 @@ router.patch('/requests/:id/status', authenticate, authorize('LAB_TECH'), async 
 });
 
 // ===========================================
-// 📊 LAB RESULTS - Lab Tech enters, Doctor views
+// 📊 LAB RESULTS
 // ===========================================
 
-// GET results for a specific request (Lab Tech/Doctor)
 router.get('/results/request/:requestId', authenticate, authorize('LAB_TECH', 'DOCTOR', 'ADMIN'), async (req, res) => {
   try {
     const { requestId } = req.params;
 
-    // Authorization: Doctor can only see their own requests
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
       if (doctor) {
@@ -398,7 +383,6 @@ router.get('/results/request/:requestId', authenticate, authorize('LAB_TECH', 'D
   }
 });
 
-// UPDATE result (Lab Tech only) - HL7: Result Entry
 router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -409,7 +393,6 @@ router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, re
       return res.status(404).json({ success: false, message: 'النتيجة غير موجودة' });
     }
 
-    // Auto-detect abnormal if reference range provided and not explicitly set
     let finalIsAbnormal = isAbnormal;
     if (finalIsAbnormal === undefined && existing.referenceRange && value) {
       const numValue = parseFloat(value);
@@ -435,20 +418,19 @@ router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, re
       verifiedAt: status === 'VERIFIED' ? new Date() : existing.verifiedAt
     };
 
-    // Handle custom fields (for tests not in catalog)
     if (customFields && typeof customFields === 'object') {
       updatePayload.notes = updatePayload.notes 
         ? `${updatePayload.notes}\n${JSON.stringify(customFields)}`
         : JSON.stringify(customFields);
     }
 
+    // ✅ Use [DATA_KEY] for Prisma update
     const result = await prisma.labResult.update({
       where: { id },
       [DATA_KEY]: updatePayload,
       include: { labTest: { select: { name: true } }, request: { select: { status: true } } }
     });
 
-    // If result is verified, check if all results for request are verified
     if (status === 'VERIFIED') {
       const allResults = await prisma.labResult.findMany({
         where: { requestId: existing.requestId }
@@ -472,7 +454,6 @@ router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, re
   }
 });
 
-// MARK result as printed (Lab Tech)
 router.post('/results/:id/print', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -491,7 +472,6 @@ router.post('/results/:id/print', authenticate, authorize('LAB_TECH'), async (re
   }
 });
 
-// MARK result as sent to doctor (Lab Tech)
 router.post('/results/:id/send', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -512,7 +492,6 @@ router.post('/results/:id/send', authenticate, authorize('LAB_TECH'), async (req
   }
 });
 
-// GET pending results for Lab Tech dashboard
 router.get('/results/pending', authenticate, authorize('LAB_TECH', 'ADMIN'), async (req, res) => {
   try {
     const { page = 1, limit = 20, priority } = req.query;
