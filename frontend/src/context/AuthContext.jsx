@@ -1,4 +1,4 @@
-// File: frontend/src/context/AuthContext.jsx - FIXED
+// File: frontend/src/context/AuthContext.jsx - NO navigate inside
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 
@@ -12,12 +12,10 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       const savedUser = localStorage.getItem('user');
-      
       if (token && savedUser) {
         try {
           const parsedUser = JSON.parse(savedUser);
           setUser(parsedUser);
-          
           const res = await api.get('/auth/me');
           if (res.data?.success) {
             const userData = res.data.data?.user || res.data['data']?.user;
@@ -34,28 +32,23 @@ export const AuthProvider = ({ children }) => {
       }
       setLoading(false);
     };
-    
     checkAuth();
   }, []);
 
-  // ✅ login تُرجع النتيجة فقط - بدون navigate
   const login = async (email, password) => {
     try {
       const response = await api.post('/auth/login', { email, password });
-      
       if (response.data?.success) {
         const responseData = response.data.data || response.data['data'];
         const token = responseData?.token;
         const userData = responseData?.user;
-        
         if (token && userData) {
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(userData));
           setUser(userData);
-          return { success: true, user: userData }; // ✅ إرجاع النتيجة فقط
+          return { success: true };
         }
       }
-      
       return { success: false, message: response.data?.message || 'فشل تسجيل الدخول' };
     } catch (error) {
       return { success: false, message: error.message || 'خطأ في الاتصال' };
@@ -63,13 +56,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch (e) {}
+    try { await api.post('/auth/logout'); } catch (e) {}
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    // ✅ لا نستخدم navigate هنا أيضاً
   };
 
   const hasRole = (roles) => {
