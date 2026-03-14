@@ -8,14 +8,19 @@ const prisma = new PrismaClient();
 const DATA_KEY = 'data';
 
 // ===========================================
-// 🧪 LAB TESTS - Admin Only (Catalog Management)
+// 🧪 LAB TESTS - Catalog Management (Admin/Lab Tech)
 // ===========================================
 
-// GET all active lab tests
+// GET all lab tests (with isActive filter)
 router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'RECEPTIONIST'), async (req, res) => {
   try {
-    const { page = 1, limit = 50, search, category } = req.query;
-    const where = { isActive: true };
+    const { page = 1, limit = 100, search, category, includeInactive = 'false' } = req.query;
+    const where = {};
+
+    // Only show active tests by default (for doctors/patients)
+    if (includeInactive !== 'true' || !['ADMIN', 'LAB_TECH'].includes(req.user?.role)) {
+      where.isActive = true;
+    }
 
     if (search) {
       where.OR = [
@@ -37,6 +42,7 @@ router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'REC
       prisma.labTest.count({ where })
     ]);
 
+    // ✅ استخدام [DATA_KEY] لتجنب مشكلة :
     const responseData = {
       success: true,
       [DATA_KEY]: {
@@ -56,15 +62,16 @@ router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'REC
   }
 });
 
-// CREATE lab test (Admin only)
-router.post('/tests', authenticate, authorize('ADMIN'), async (req, res) => {
+// CREATE lab test (Admin/Lab Tech only)
+router.post('/tests', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
-    const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime, description } = req.body;
+    const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime, description, isActive } = req.body;
 
     if (!name || !code || !category || price === undefined) {
       return res.status(400).json({ success: false, message: 'الاسم، الرمز، القسم، والسعر مطلوبة' });
     }
 
+    // Check code uniqueness
     const existing = await prisma.labTest.findUnique({ where: { code } });
     if (existing) {
       return res.status(400).json({ success: false, message: 'رمز الفحص مستخدم بالفعل' });
@@ -80,7 +87,7 @@ router.post('/tests', authenticate, authorize('ADMIN'), async (req, res) => {
       isFasting: isFasting === 'true' || isFasting === true,
       turnaroundTime: parseInt(turnaroundTime) || 24,
       description: description || null,
-      isActive: true
+      isActive: isActive !== undefined ? isActive : true
     };
 
     const labTest = await prisma.labTest.create({ [DATA_KEY]: testPayload });
@@ -94,8 +101,8 @@ router.post('/tests', authenticate, authorize('ADMIN'), async (req, res) => {
   }
 });
 
-// UPDATE lab test (Admin only)
-router.put('/tests/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+// UPDATE lab test (Admin/Lab Tech only)
+router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime, description, isActive } = req.body;
@@ -103,6 +110,14 @@ router.put('/tests/:id', authenticate, authorize('ADMIN'), async (req, res) => {
     const existing = await prisma.labTest.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ success: false, message: 'الفحص غير موجود' });
+    }
+
+    // If code is being changed, check uniqueness
+    if (code && code !== existing.code) {
+      const codeExists = await prisma.labTest.findUnique({ where: { code } });
+      if (codeExists) {
+        return res.status(400).json({ success: false, message: 'رمز الفحص مستخدم بالفعل' });
+      }
     }
 
     const updatePayload = {
@@ -133,24 +148,28 @@ router.put('/tests/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   }
 });
 
-// SOFT DELETE lab test (Admin only)
-router.delete('/tests/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+// SOFT DELETE / TOGGLE ACTIVE (Admin/Lab Tech only)
+router.patch('/tests/:id/active', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
-    const existing = await prisma.labTest.findUnique({ where: { id: req.params.id } });
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const existing = await prisma.labTest.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ success: false, message: 'الفحص غير موجود' });
     }
 
-    await prisma.labTest.update({
-      where: { id: req.params.id },
-      [DATA_KEY]: { isActive: false }
+    const labTest = await prisma.labTest.update({
+      where: { id },
+      [DATA_KEY]: { isActive: isActive === true || isActive === 'true' }
     });
 
-    await auditLog(req, 'DELETE', 'LabTest', req.params.id, `Soft deleted: ${existing.name}`);
+    await auditLog(req, 'UPDATE', 'LabTest', id, `Active status: ${existing.isActive} → ${labTest.isActive}`);
 
-    res.json({ success: true, message: 'تم تعطيل الفحص' });
+    const responseData = { success: true, message: 'تم تحديث حالة الفحص', [DATA_KEY]: { labTest } };
+    res.json(responseData);
   } catch (e) {
-    console.error('Delete lab test error:', e);
+    console.error('Toggle lab test active error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
@@ -238,12 +257,12 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
       return res.status(403).json({ success: false, message: 'ملف الطبيب غير موجود' });
     }
 
-    // Verify tests exist by code (more stable than ID) and are active
+    // Verify tests exist by code (more stable than ID) and are ACTIVE
     const tests = await prisma.labTest.findMany({
       where: { code: { in: testCodes }, isActive: true }
     });
     if (tests.length !== testCodes.length) {
-      return res.status(400).json({ success: false, message: 'بعض رموز الفحوصات غير صالحة' });
+      return res.status(400).json({ success: false, message: 'بعض رموز الفحوصات غير صالحة أو غير مفعلة' });
     }
 
     // Calculate total price
@@ -280,7 +299,7 @@ router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => 
       notes: null
     }));
 
-    await prisma.labResult.createMany({ [DATA_KEY]: { data: resultPayloads } });
+    await prisma.labResult.createMany({ [DATA_KEY]: {  resultPayloads } });
 
     // Create invoice for lab tests (integrated billing)
     const invoicePayload = {
@@ -483,9 +502,6 @@ router.post('/results/:id/send', authenticate, authorize('LAB_TECH'), async (req
       include: { request: { select: { doctorId: true } } }
     });
 
-    // Optional: Send notification to doctor (placeholder for email/SMS integration)
-    // await sendNotificationToDoctor(result.request.doctorId, result);
-
     await auditLog(req, 'SEND', 'LabResult', id, 'Result sent to doctor');
 
     const responseData = { success: true, message: 'تم إرسال النتيجة للطبيب', [DATA_KEY]: { result } };
@@ -511,7 +527,7 @@ router.get('/results/pending', authenticate, authorize('LAB_TECH', 'ADMIN'), asy
         where,
         skip: (page - 1) * limit,
         take: parseInt(limit),
-        orderBy: { createdAt: 'asc' }, // Oldest first for workflow
+        orderBy: { createdAt: 'asc' },
         include: {
           patient: { select: { firstName: true, lastName: true } },
           labTest: { select: { name: true, code: true, turnaroundTime: true } },
