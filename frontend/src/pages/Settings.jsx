@@ -1,9 +1,9 @@
-// File: frontend/src/pages/Settings.jsx - FIXED NAME CONFLICT
+// File: frontend/src/pages/Settings.jsx - PRODUCTION READY (NAME CONFLICT FIXED)
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 // ✅ إصلاح: إعادة تسمية أيقونة Settings لتجنب التعارض
-import { ArrowLeft, Settings as SettingsIcon, User, Bell, Shield, Database, Globe, Moon, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, User, Bell, Shield, Database, Globe, Save, Loader2 } from 'lucide-react';
 
 const Settings = () => {
   const { user, logout } = useAuth();
@@ -28,7 +28,6 @@ const Settings = () => {
   const handleSave = async () => {
     setLoading(true);
     setSuccess('');
-    
     try {
       localStorage.setItem('clinicSettings', JSON.stringify(settings));
       setSuccess('تم حفظ الإعدادات بنجاح');
@@ -43,7 +42,6 @@ const Settings = () => {
   const SettingSection = ({ icon: Icon, title, children }) => (
     <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
       <div className="flex items-center gap-3 mb-4 pb-4 border-b">
-        {/* ✅ استخدام الأيقونة المعاد تسميتها */}
         <Icon className="w-6 h-6 text-blue-600" />
         <h2 className="text-lg font-bold text-gray-800">{title}</h2>
       </div>
@@ -60,7 +58,7 @@ const Settings = () => {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2">
-              {/* ✅ استخدام الأيقونة المعاد تسميتها */}
+              {/* ✅ استخدام SettingsIcon بدلاً من Settings */}
               <SettingsIcon className="w-6 h-6 text-gray-600" />
               <h1 className="text-xl font-bold text-gray-800">الإعدادات</h1>
             </div>
@@ -74,9 +72,7 @@ const Settings = () => {
 
       <main className="max-w-4xl mx-auto px-4 py-6">
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-            {success}
-          </div>
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">{success}</div>
         )}
 
         <SettingSection icon={User} title="معلومات العيادة">
@@ -86,30 +82,28 @@ const Settings = () => {
             <input type="email" value={settings.clinicEmail} onChange={(e) => setSettings({...settings, clinicEmail: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" placeholder="البريد" />
             <input type="text" value={settings.clinicAddress} onChange={(e) => setSettings({...settings, clinicAddress: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" placeholder="العنوان" />
             <input type="text" value={settings.workingHours} onChange={(e) => setSettings({...settings, workingHours: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" placeholder="ساعات العمل" />
-            <input type="number" value={settings.appointmentDuration} onChange={(e) => setSettings({...settings, appointmentDuration: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" placeholder="مدة الموعد (دقائق)" />
+            <input type="number" value={settings.appointmentDuration} onChange={(e) => setSettings({...settings, appointmentDuration: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2" placeholder="مدة الموعد (دقائق)" min="5" max="120" />
           </div>
         </SettingSection>
 
         <SettingSection icon={Bell} title="الإشعارات">
           <div className="space-y-4">
-            <label className="flex items-center justify-between p-4 border rounded-lg">
+            <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
               <span className="font-medium text-gray-700">تفعيل إشعارات المواعيد</span>
-              <input type="checkbox" checked={settings.enableNotifications} onChange={(e) => setSettings({...settings, enableNotifications: e.target.checked})} className="w-5 h-5" />
+              <input type="checkbox" checked={settings.enableNotifications} onChange={(e) => setSettings({...settings, enableNotifications: e.target.checked})} className="w-5 h-5 text-blue-600 rounded" />
             </label>
-            <label className="flex items-center justify-between p-4 border rounded-lg">
+            <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
               <span className="font-medium text-gray-700">تفعيل تنبيهات البريد الإلكتروني</span>
-              <input type="checkbox" checked={settings.enableEmailAlerts} onChange={(e) => setSettings({...settings, enableEmailAlerts: e.target.checked})} className="w-5 h-5" />
+              <input type="checkbox" checked={settings.enableEmailAlerts} onChange={(e) => setSettings({...settings, enableEmailAlerts: e.target.checked})} className="w-5 h-5 text-blue-600 rounded" />
             </label>
           </div>
         </SettingSection>
 
         <SettingSection icon={Shield} title="الأمان">
-          <div className="space-y-4">
-            <div className="p-4 border rounded-lg">
-              <label className="block font-medium text-gray-700 mb-2">إنهاء الجلسة التلقائي بعد (دقائق)</label>
-              <input type="number" value={settings.autoLogoutMinutes} onChange={(e) => setSettings({...settings, autoLogoutMinutes: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 w-full md:w-auto" />
-              <p className="text-xs text-gray-500 mt-2">لأغراض الأمان، سيتم تسجيل الخروج تلقائياً بعد فترة عدم النشاط</p>
-            </div>
+          <div className="p-4 border rounded-lg">
+            <label className="block font-medium text-gray-700 mb-2">إنهاء الجلسة التلقائي بعد (دقائق)</label>
+            <input type="number" value={settings.autoLogoutMinutes} onChange={(e) => setSettings({...settings, autoLogoutMinutes: e.target.value})} className="border border-gray-300 rounded-lg px-4 py-2 w-full md:w-auto" min="5" max="120" />
+            <p className="text-xs text-gray-500 mt-2">لأغراض الأمان، سيتم تسجيل الخروج تلقائياً بعد فترة عدم النشاط</p>
           </div>
         </SettingSection>
 
@@ -127,12 +121,10 @@ const Settings = () => {
         </SettingSection>
 
         <SettingSection icon={Database} title="البيانات">
-          <div className="space-y-4">
-            <button className="w-full md:w-auto px-6 py-3 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium" type="button">
-              📥 تصدير البيانات
-            </button>
-            <p className="text-xs text-gray-500">تنزيل نسخة احتياطية من جميع بيانات النظام</p>
-          </div>
+          <button className="w-full md:w-auto px-6 py-3 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium flex items-center justify-center gap-2" type="button">
+            📥 تصدير البيانات
+          </button>
+          <p className="text-xs text-gray-500 mt-2">تنزيل نسخة احتياطية من جميع بيانات النظام</p>
         </SettingSection>
       </main>
     </div>
