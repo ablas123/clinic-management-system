@@ -1,5 +1,5 @@
 // ===========================================
-// 🏥 CLINIC MANAGEMENT SYSTEM - PRO SCHEMA
+// 🏥 CLINIC MANAGEMENT SYSTEM - PRO SCHEMA (FIXED)
 // ===========================================
 // HL7-inspired, HIPAA-compliant structure
 
@@ -101,7 +101,7 @@ model LabTechnician {
 }
 
 // ===========================================
-// 👤 PATIENT PROFILE
+// 👤 PATIENT PROFILE - ✅ FIXED: Added labRequests relation
 // ===========================================
 
 model Patient {
@@ -120,11 +120,12 @@ model Patient {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relations
+  // Relations - ✅ جميع العلاقات مع النماذج الأخرى
   appointments  Appointment[]
   medicalRecords MedicalRecord[]
   invoices      Invoice[]
   labResults    LabResult[]
+  labRequests   LabRequest[]  // ✅ تمت الإضافة: العلاقة العكسية مع LabRequest
 
   @@index([email])
   @@index([phone])
@@ -239,7 +240,7 @@ model InvoiceItem {
 }
 
 // ===========================================
-// 🧪 LAB MANAGEMENT (HL7-inspired)
+// 🧪 LAB MANAGEMENT (HL7-inspired) - ✅ FIXED
 // ===========================================
 
 enum LabTestCategory {
