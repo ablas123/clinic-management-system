@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Dashboard.jsx - FIXED BUTTONS
+// File: frontend/src/pages/Dashboard.jsx - COMPLETE & FINAL
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Users, Stethoscope, Calendar, FileText, TestTube, Clipboard, DollarSign, Activity, Settings, FileCheck, Printer, Phone } from 'lucide-react';
@@ -12,6 +12,7 @@ const Dashboard = () => {
     navigate('/login');
   };
 
+  // ✅ قوائم حسب الدور - مع إضافة المختبر للأطباء
   const getMenuItems = () => {
     switch (user?.role) {
       case 'ADMIN':
@@ -24,20 +25,24 @@ const Dashboard = () => {
           { icon: Activity, title: 'التقارير', color: 'bg-indigo-500', path: '/reports', desc: 'التقارير والإحصائيات' },
           { icon: Settings, title: 'الإعدادات', color: 'bg-gray-500', path: '/settings', desc: 'إعدادات النظام' },
         ];
+      
       case 'DOCTOR':
         return [
           { icon: Users, title: 'مرضاي', color: 'bg-blue-500', path: '/my-patients', desc: 'ملفات مرضاي' },
           { icon: Calendar, title: 'مواعيدي', color: 'bg-purple-500', path: '/my-appointments', desc: 'جدول مواعيدي' },
+          { icon: TestTube, title: 'المختبر', color: 'bg-red-500', path: '/lab', desc: 'طلب وعرض نتائج الفحوصات' }, // ✅ تم الإضافة
           { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab-results', desc: 'نتائج المختبر' },
           { icon: Clipboard, title: 'السجلات', color: 'bg-orange-500', path: '/medical-records', desc: 'السجلات الطبية' },
         ];
+      
       case 'LAB_TECH':
         return [
-          { icon: TestTube, title: 'الفحوصات', color: 'bg-red-500', path: '/lab-tests', desc: 'قائمة الفحوصات' },
-          { icon: Clipboard, title: 'الطلبات', color: 'bg-purple-500', path: '/lab-requests', desc: 'طلبات الفحوصات' },
-          { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab-results', desc: 'إدخال النتائج' },
-          { icon: Printer, title: 'التقارير', color: 'bg-blue-500', path: '/lab-reports', desc: 'طباعة التقارير' },
+          { icon: TestTube, title: 'الفحوصات', color: 'bg-red-500', path: '/lab', desc: 'قائمة الفحوصات' },
+          { icon: Clipboard, title: 'الطلبات', color: 'bg-purple-500', path: '/lab', desc: 'طلبات الفحوصات' },
+          { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab', desc: 'إدخال النتائج' },
+          { icon: Printer, title: 'التقارير', color: 'bg-blue-500', path: '/lab', desc: 'طباعة التقارير' },
         ];
+      
       case 'RECEPTIONIST':
         return [
           { icon: Users, title: 'المرضى', color: 'bg-blue-500', path: '/patients', desc: 'تسجيل المرضى' },
@@ -45,6 +50,7 @@ const Dashboard = () => {
           { icon: DollarSign, title: 'الفواتير', color: 'bg-orange-500', path: '/invoices', desc: 'الفواتير والدفع' },
           { icon: Phone, title: 'التأكيدات', color: 'bg-green-500', path: '/confirmations', desc: 'تأكيد المواعيد' },
         ];
+      
       default:
         return [];
     }
@@ -112,7 +118,12 @@ const Dashboard = () => {
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-gray-500">{user?.role}</p>
+                <p className="text-xs text-gray-500">
+                  {user?.role === 'ADMIN' && 'مدير النظام'}
+                  {user?.role === 'DOCTOR' && 'طبيب'}
+                  {user?.role === 'LAB_TECH' && 'فني مختبر'}
+                  {user?.role === 'RECEPTIONIST' && 'موظف استقبال'}
+                </p>
               </div>
             </div>
             <button onClick={handleLogout} className="flex items-center gap-2 text-red-600 hover:text-red-700" type="button">
