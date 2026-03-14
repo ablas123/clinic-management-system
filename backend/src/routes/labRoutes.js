@@ -5,21 +5,16 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize, auditLog } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
-const DATA_KEY = 'data'; // ✅ Critical: Avoid colon stripping
+const DATA_KEY = 'data';
 
-// ===========================================
-// 🧪 LAB TESTS - Catalog Management
-// ===========================================
-
+// GET all lab tests
 router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'RECEPTIONIST'), async (req, res) => {
   try {
     const { page = 1, limit = 100, search, category, includeInactive = 'false' } = req.query;
     const where = {};
-
     if (includeInactive !== 'true' || !['ADMIN', 'LAB_TECH'].includes(req.user?.role)) {
       where.isActive = true;
     }
-
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -29,28 +24,15 @@ router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'REC
     if (category && category !== 'ALL') {
       where.category = category;
     }
-
     const [labTests, total] = await Promise.all([
-      prisma.labTest.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: parseInt(limit),
-        orderBy: { name: 'asc' }
-      }),
+      prisma.labTest.findMany({ where, skip: (page - 1) * limit, take: parseInt(limit), orderBy: { name: 'asc' } }),
       prisma.labTest.count({ where })
     ]);
-
-    // ✅ Use [DATA_KEY] to avoid colon stripping
     const responseData = {
       success: true,
       [DATA_KEY]: {
         labTests,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit)
-        }
+        pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / limit) }
       }
     };
     res.json(responseData);
@@ -60,36 +42,26 @@ router.get('/tests', authenticate, authorize('ADMIN', 'DOCTOR', 'LAB_TECH', 'REC
   }
 });
 
+// CREATE lab test
 router.post('/tests', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
     const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime, description, isActive } = req.body;
-
     if (!name || !code || !category || price === undefined) {
       return res.status(400).json({ success: false, message: 'الاسم، الرمز، القسم، والسعر مطلوبة' });
     }
-
     const existing = await prisma.labTest.findUnique({ where: { code } });
     if (existing) {
       return res.status(400).json({ success: false, message: 'رمز الفحص مستخدم بالفعل' });
     }
-
     const testPayload = {
-      name,
-      code,
-      category,
-      price: parseFloat(price),
-      unit: unit || null,
+      name, code, category, price: parseFloat(price), unit: unit || null,
       referenceRange: referenceRange || null,
       isFasting: isFasting === 'true' || isFasting === true,
       turnaroundTime: parseInt(turnaroundTime) || 24,
-      description: description || null,
-      isActive: isActive !== undefined ? isActive : true
+      description: description || null, isActive: isActive !== undefined ? isActive : true
     };
-
-    // ✅ Use [DATA_KEY] for Prisma create
     const labTest = await prisma.labTest.create({ [DATA_KEY]: testPayload });
     await auditLog(req, 'CREATE', 'LabTest', labTest.id, `Created: ${name}`);
-
     const responseData = { success: true, message: 'تم إضافة الفحص', [DATA_KEY]: { labTest } };
     res.status(201).json(responseData);
   } catch (e) {
@@ -98,23 +70,21 @@ router.post('/tests', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, 
   }
 });
 
+// UPDATE lab test
 router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, code, category, price, unit, referenceRange, isFasting, turnaroundTime, description, isActive } = req.body;
-
     const existing = await prisma.labTest.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ success: false, message: 'الفحص غير موجود' });
     }
-
     if (code && code !== existing.code) {
       const codeExists = await prisma.labTest.findUnique({ where: { code } });
       if (codeExists) {
         return res.status(400).json({ success: false, message: 'رمز الفحص مستخدم بالفعل' });
       }
     }
-
     const updatePayload = {
       name: name !== undefined ? name : existing.name,
       code: code !== undefined ? code : existing.code,
@@ -127,15 +97,8 @@ router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (re
       description: description !== undefined ? description : existing.description,
       isActive: isActive !== undefined ? isActive : existing.isActive
     };
-
-    // ✅ Use [DATA_KEY] for Prisma update
-    const labTest = await prisma.labTest.update({
-      where: { id },
-      [DATA_KEY]: updatePayload
-    });
-
+    const labTest = await prisma.labTest.update({ where: { id }, [DATA_KEY]: updatePayload });
     await auditLog(req, 'UPDATE', 'LabTest', id, `Updated: ${name || existing.name}`);
-
     const responseData = { success: true, message: 'تم تحديث الفحص', [DATA_KEY]: { labTest } };
     res.json(responseData);
   } catch (e) {
@@ -144,24 +107,17 @@ router.put('/tests/:id', authenticate, authorize('ADMIN', 'LAB_TECH'), async (re
   }
 });
 
+// TOGGLE active status
 router.patch('/tests/:id/active', authenticate, authorize('ADMIN', 'LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
     const { isActive } = req.body;
-
     const existing = await prisma.labTest.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ success: false, message: 'الفحص غير موجود' });
     }
-
-    // ✅ Use [DATA_KEY] for Prisma update
-    const labTest = await prisma.labTest.update({
-      where: { id },
-      [DATA_KEY]: { isActive: isActive === true || isActive === 'true' }
-    });
-
+    const labTest = await prisma.labTest.update({ where: { id }, [DATA_KEY]: { isActive: isActive === true || isActive === 'true' } });
     await auditLog(req, 'UPDATE', 'LabTest', id, `Active: ${existing.isActive} → ${labTest.isActive}`);
-
     const responseData = { success: true, message: 'تم تحديث حالة الفحص', [DATA_KEY]: { labTest } };
     res.json(responseData);
   } catch (e) {
@@ -170,59 +126,30 @@ router.patch('/tests/:id/active', authenticate, authorize('ADMIN', 'LAB_TECH'), 
   }
 });
 
-// ===========================================
-// 📋 LAB REQUESTS
-// ===========================================
-
+// GET requests
 router.get('/requests', authenticate, authorize('DOCTOR', 'LAB_TECH', 'ADMIN'), async (req, res) => {
   try {
     const { page = 1, limit = 20, status, patientId } = req.query;
     const where = {};
-
     if (status && status !== 'ALL') where.status = status;
     if (patientId) where.patientId = patientId;
-
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
       if (doctor) where.doctorId = doctor.id;
     }
-
     const [requests, total] = await Promise.all([
       prisma.labRequest.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: parseInt(limit),
-        orderBy: { requestedAt: 'desc' },
+        where, skip: (page - 1) * limit, take: parseInt(limit), orderBy: { requestedAt: 'desc' },
         include: {
           patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
           doctor: { include: { user: { select: { firstName: true, lastName: true } } } },
           tests: { select: { id: true, name: true, code: true, price: true } },
-          labResults: { 
-            select: { 
-              id: true, 
-              status: true, 
-              labTest: { select: { name: true, code: true } },
-              value: true,
-              isAbnormal: true
-            } 
-          }
+          labResults: { select: { id: true, status: true, labTest: { select: { name: true, code: true } }, value: true, isAbnormal: true } }
         }
       }),
       prisma.labRequest.count({ where })
     ]);
-
-    const responseData = {
-      success: true,
-      [DATA_KEY]: {
-        requests,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit)
-        }
-      }
-    };
+    const responseData = { success: true, [DATA_KEY]: { requests, pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / limit) } } };
     res.json(responseData);
   } catch (e) {
     console.error('Get lab requests error:', e);
@@ -230,113 +157,52 @@ router.get('/requests', authenticate, authorize('DOCTOR', 'LAB_TECH', 'ADMIN'), 
   }
 });
 
+// CREATE request
 router.post('/requests', authenticate, authorize('DOCTOR'), async (req, res) => {
   try {
     const { patientId, testCodes, priority, clinicalNotes } = req.body;
-
     if (!patientId || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0) {
       return res.status(400).json({ success: false, message: 'المريض ورموز الفحوصات مطلوبة' });
     }
-
     const patient = await prisma.patient.findUnique({ where: { id: patientId } });
-    if (!patient) {
-      return res.status(400).json({ success: false, message: 'المريض غير موجود' });
-    }
-
+    if (!patient) return res.status(400).json({ success: false, message: 'المريض غير موجود' });
     const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
-    if (!doctor) {
-      return res.status(403).json({ success: false, message: 'ملف الطبيب غير موجود' });
-    }
-
-    const tests = await prisma.labTest.findMany({
-      where: { code: { in: testCodes }, isActive: true }
-    });
+    if (!doctor) return res.status(403).json({ success: false, message: 'ملف الطبيب غير موجود' });
+    const tests = await prisma.labTest.findMany({ where: { code: { in: testCodes }, isActive: true } });
     if (tests.length !== testCodes.length) {
       return res.status(400).json({ success: false, message: 'بعض رموز الفحوصات غير صالحة أو غير مفعلة' });
     }
-
     const totalAmount = tests.reduce((sum, t) => sum + parseFloat(t.price), 0);
-
     const requestPayload = {
-      patientId,
-      doctorId: doctor.id,
-      status: 'PENDING',
-      priority: priority || 'NORMAL',
-      notes: clinicalNotes || null,
-      tests: { connect: tests.map(t => ({ id: t.id })) }
+      patientId, doctorId: doctor.id, status: 'PENDING', priority: priority || 'NORMAL',
+      notes: clinicalNotes || null, tests: { connect: tests.map(t => ({ id: t.id })) }
     };
-
-    // ✅ Use [DATA_KEY] for Prisma create
-    const labRequest = await prisma.labRequest.create({
-      [DATA_KEY]: requestPayload,
-      include: { 
-        tests: true, 
-        patient: { select: { firstName: true, lastName: true } } 
-      }
-    });
-
+    const labRequest = await prisma.labRequest.create({ [DATA_KEY]: requestPayload, include: { tests: true, patient: { select: { firstName: true, lastName: true } } } });
     const resultPayloads = tests.map(test => ({
-      patientId,
-      labTestId: test.id,
-      requestId: labRequest.id,
-      value: '',
-      unit: test.unit || null,
-      referenceRange: test.referenceRange || null,
-      isAbnormal: false,
-      status: 'PENDING',
-      notes: null
+      patientId, labTestId: test.id, requestId: labRequest.id, value: '', unit: test.unit || null,
+      referenceRange: test.referenceRange || null, isAbnormal: false, status: 'PENDING', notes: null
     }));
-
-    // ✅ Use [DATA_KEY] for Prisma createMany
     await prisma.labResult.createMany({ [DATA_KEY]: {  resultPayloads } });
-
-    const invoicePayload = {
-      patientId,
-      totalAmount,
-      description: `فحوصات مختبر: ${tests.map(t => t.name).join(', ')}`,
-      status: 'PENDING',
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    };
+    const invoicePayload = { patientId, totalAmount, description: `فحوصات مختبر: ${tests.map(t => t.name).join(', ')}`, status: 'PENDING', dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) };
     await prisma.invoice.create({ [DATA_KEY]: invoicePayload });
-
-    await auditLog(req, 'CREATE', 'LabRequest', labRequest.id, 
-      `Ordered ${tests.length} tests for patient ${patientId}: ${testCodes.join(', ')}`);
-
-    const responseData = { 
-      success: true, 
-      message: 'تم طلب الفحوصات + إنشاء فاتورة', 
-      [DATA_KEY]: { labRequest, totalAmount } 
-    };
+    await auditLog(req, 'CREATE', 'LabRequest', labRequest.id, `Ordered ${tests.length} tests for patient ${patientId}`);
+    const responseData = { success: true, message: 'تم طلب الفحوصات + إنشاء فاتورة', [DATA_KEY]: { labRequest, totalAmount } };
     res.status(201).json(responseData);
-
   } catch (e) {
     console.error('Create lab request error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
+// UPDATE request status
 router.patch('/requests/:id/status', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-
     const existing = await prisma.labRequest.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
-    }
-
-    // ✅ Use [DATA_KEY] for Prisma update
-    const request = await prisma.labRequest.update({
-      where: { id },
-      [DATA_KEY]: { 
-        status,
-        completedAt: status === 'COMPLETED' ? new Date() : existing.completedAt
-      },
-      include: { tests: true }
-    });
-
+    if (!existing) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const request = await prisma.labRequest.update({ where: { id }, [DATA_KEY]: { status, completedAt: status === 'COMPLETED' ? new Date() : existing.completedAt }, include: { tests: true } });
     await auditLog(req, 'UPDATE', 'LabRequest', id, `Status: ${existing.status} → ${status}`);
-
     const responseData = { success: true, message: 'تم تحديث حالة الطلب', [DATA_KEY]: { request } };
     res.json(responseData);
   } catch (e) {
@@ -345,27 +211,19 @@ router.patch('/requests/:id/status', authenticate, authorize('LAB_TECH'), async 
   }
 });
 
-// ===========================================
-// 📊 LAB RESULTS
-// ===========================================
-
+// GET results for request
 router.get('/results/request/:requestId', authenticate, authorize('LAB_TECH', 'DOCTOR', 'ADMIN'), async (req, res) => {
   try {
     const { requestId } = req.params;
-
     if (req.user.role === 'DOCTOR') {
       const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.userId } });
       if (doctor) {
-        const request = await prisma.labRequest.findUnique({ 
-          where: { id: requestId },
-          select: { doctorId: true }
-        });
+        const request = await prisma.labRequest.findUnique({ where: { id: requestId }, select: { doctorId: true } });
         if (request && request.doctorId !== doctor.id) {
           return res.status(403).json({ success: false, message: 'غير مصرح لك لعرض هذا الطلب' });
         }
       }
     }
-
     const results = await prisma.labResult.findMany({
       where: { requestId },
       include: {
@@ -374,7 +232,6 @@ router.get('/results/request/:requestId', authenticate, authorize('LAB_TECH', 'D
       },
       orderBy: { labTest: { name: 'asc' } }
     });
-
     const responseData = { success: true, [DATA_KEY]: { results } };
     res.json(responseData);
   } catch (e) {
@@ -383,16 +240,13 @@ router.get('/results/request/:requestId', authenticate, authorize('LAB_TECH', 'D
   }
 });
 
+// UPDATE result
 router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
     const { value, unit, isAbnormal, notes, status, customFields } = req.body;
-
     const existing = await prisma.labResult.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ success: false, message: 'النتيجة غير موجودة' });
-    }
-
+    if (!existing) return res.status(404).json({ success: false, message: 'النتيجة غير موجودة' });
     let finalIsAbnormal = isAbnormal;
     if (finalIsAbnormal === undefined && existing.referenceRange && value) {
       const numValue = parseFloat(value);
@@ -406,7 +260,6 @@ router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, re
         }
       }
     }
-
     const updatePayload = {
       value: value !== undefined ? value : existing.value,
       unit: unit !== undefined ? unit : existing.unit,
@@ -417,35 +270,18 @@ router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, re
       technicianId: req.user.userId,
       verifiedAt: status === 'VERIFIED' ? new Date() : existing.verifiedAt
     };
-
     if (customFields && typeof customFields === 'object') {
-      updatePayload.notes = updatePayload.notes 
-        ? `${updatePayload.notes}\n${JSON.stringify(customFields)}`
-        : JSON.stringify(customFields);
+      updatePayload.notes = updatePayload.notes ? `${updatePayload.notes}\n${JSON.stringify(customFields)}` : JSON.stringify(customFields);
     }
-
-    // ✅ Use [DATA_KEY] for Prisma update
-    const result = await prisma.labResult.update({
-      where: { id },
-      [DATA_KEY]: updatePayload,
-      include: { labTest: { select: { name: true } }, request: { select: { status: true } } }
-    });
-
+    const result = await prisma.labResult.update({ where: { id }, [DATA_KEY]: updatePayload, include: { labTest: { select: { name: true } }, request: { select: { status: true } } } });
     if (status === 'VERIFIED') {
-      const allResults = await prisma.labResult.findMany({
-        where: { requestId: existing.requestId }
-      });
+      const allResults = await prisma.labResult.findMany({ where: { requestId: existing.requestId } });
       const allVerified = allResults.every(r => r.status === 'VERIFIED');
       if (allVerified) {
-        await prisma.labRequest.update({
-          where: { id: existing.requestId },
-          [DATA_KEY]: { status: 'COMPLETED', completedAt: new Date() }
-        });
+        await prisma.labRequest.update({ where: { id: existing.requestId }, [DATA_KEY]: { status: 'COMPLETED', completedAt: new Date() } });
       }
     }
-
     await auditLog(req, 'UPDATE', 'LabResult', id, `Result entered for: ${result.labTest.name}`);
-
     const responseData = { success: true, message: 'تم تحديث النتيجة', [DATA_KEY]: { result } };
     res.json(responseData);
   } catch (e) {
@@ -454,17 +290,12 @@ router.patch('/results/:id', authenticate, authorize('LAB_TECH'), async (req, re
   }
 });
 
+// PRINT result
 router.post('/results/:id/print', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
-    
-    await prisma.labResult.update({
-      where: { id },
-      [DATA_KEY]: { printedAt: new Date() }
-    });
-
+    await prisma.labResult.update({ where: { id }, [DATA_KEY]: { printedAt: new Date() } });
     await auditLog(req, 'PRINT', 'LabResult', id, 'Result printed');
-
     res.json({ success: true, message: 'تم تسجيل الطباعة' });
   } catch (e) {
     console.error('Print result error:', e);
@@ -472,18 +303,12 @@ router.post('/results/:id/print', authenticate, authorize('LAB_TECH'), async (re
   }
 });
 
+// SEND result to doctor
 router.post('/results/:id/send', authenticate, authorize('LAB_TECH'), async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const result = await prisma.labResult.update({
-      where: { id },
-      [DATA_KEY]: { sentToDoctorAt: new Date() },
-      include: { request: { select: { doctorId: true } } }
-    });
-
+    const result = await prisma.labResult.update({ where: { id }, [DATA_KEY]: { sentToDoctorAt: new Date() }, include: { request: { select: { doctorId: true } } } });
     await auditLog(req, 'SEND', 'LabResult', id, 'Result sent to doctor');
-
     const responseData = { success: true, message: 'تم إرسال النتيجة للطبيب', [DATA_KEY]: { result } };
     res.json(responseData);
   } catch (e) {
@@ -492,21 +317,15 @@ router.post('/results/:id/send', authenticate, authorize('LAB_TECH'), async (req
   }
 });
 
+// GET pending results
 router.get('/results/pending', authenticate, authorize('LAB_TECH', 'ADMIN'), async (req, res) => {
   try {
     const { page = 1, limit = 20, priority } = req.query;
     const where = { status: 'PENDING' };
-    
-    if (priority) {
-      where.request = { priority };
-    }
-
+    if (priority) { where.request = { priority }; }
     const [results, total] = await Promise.all([
       prisma.labResult.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: parseInt(limit),
-        orderBy: { createdAt: 'asc' },
+        where, skip: (page - 1) * limit, take: parseInt(limit), orderBy: { createdAt: 'asc' },
         include: {
           patient: { select: { firstName: true, lastName: true } },
           labTest: { select: { name: true, code: true, turnaroundTime: true } },
@@ -515,19 +334,7 @@ router.get('/results/pending', authenticate, authorize('LAB_TECH', 'ADMIN'), asy
       }),
       prisma.labResult.count({ where })
     ]);
-
-    const responseData = {
-      success: true,
-      [DATA_KEY]: {
-        results,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit)
-        }
-      }
-    };
+    const responseData = { success: true, [DATA_KEY]: { results, pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / limit) } } };
     res.json(responseData);
   } catch (e) {
     console.error('Get pending results error:', e);
