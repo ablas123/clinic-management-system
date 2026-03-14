@@ -1,10 +1,13 @@
-// File: backend/src/middleware/auth.js
+// File: backend/src/middleware/auth.js - COMPLETE & FINAL
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
+// ===========================================
+// 🔐 AUTHENTICATE (Verify JWT)
+// ===========================================
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -36,14 +39,21 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// ===========================================
+// 🔑 AUTHORIZE (Check Role Permissions) - ✅ يدعم LAB_TECH
+// ===========================================
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user || !req.user.role) {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
+
+    // ✅ التحقق من أن الدور مسموح به (بما في ذلك LAB_TECH)
     if (!allowedRoles.includes(req.user.role)) {
+      console.warn(`⚠️ Unauthorized: Role=${req.user.role}, Path=${req.path}, Allowed=${allowedRoles.join(',')}`);
       return res.status(403).json({ success: false, message: 'Insufficient permissions' });
     }
+
     next();
   };
 };
