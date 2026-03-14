@@ -1,9 +1,9 @@
-// File: frontend/src/pages/LabDoctor.jsx - COMPLETE & FIXED (Shows Active Tests)
+// File: frontend/src/pages/LabDoctor.jsx - COMPLETE & FIXED (Handles Empty Catalog)
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { ArrowLeft, TestTube, Search, Loader2, AlertCircle, X, User, Calendar, Clipboard, CheckCircle } from 'lucide-react';
+import { ArrowLeft, TestTube, Search, Loader2, AlertCircle, X, User, Calendar, Clipboard, CheckCircle, RefreshCw } from 'lucide-react';
 
 const LabDoctor = () => {
   const { logout } = useAuth();
@@ -25,7 +25,7 @@ const LabDoctor = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ دعم تمرير المريض من صفحة مرضاي
+  // ✅ Support patientId from URL params
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const patientId = params.get('patientId');
@@ -45,15 +45,16 @@ const LabDoctor = () => {
       setError('');
       
       if (activeTab === 'request') {
-        // ✅ جلب الفحوصات النشطة فقط + دعم ['data'] fallback
+        // ✅ Fetch active tests only + support ['data'] fallback
         const testsRes = await api.get('/lab/tests?isActive=true');
         if (testsRes.data?.success) {
           const testsData = 
             testsRes.data.data?.labTests || 
             testsRes.data['data']?.labTests || 
             [];
+          // ✅ Filter to only active tests (double-check)
           setLabTests(testsData.filter(t => t.isActive !== false));
-          console.log('📊 [LabDoctor] Loaded', testsData.length, 'active tests');
+          console.log('📊 [LabDoctor] Loaded', testsData.filter(t => t.isActive !== false).length, 'active tests');
         }
         
         const patientsRes = await api.get('/patients');
@@ -250,7 +251,7 @@ const LabDoctor = () => {
               </div>
             </div>
 
-            {/* Test Selection - ✅ FIXED: Shows active tests */}
+            {/* Test Selection - ✅ FIXED: Shows active tests or helpful message */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -272,8 +273,19 @@ const LabDoctor = () => {
                 {labTests.length === 0 ? (
                   <div className="p-8 text-center text-gray-500">
                     <TestTube className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>لا توجد فحوصات متاحة حالياً</p>
-                    <p className="text-sm mt-2">يرجى التواصل مع إدارة المختبر لإضافة الفحوصات</p>
+                    <p className="font-medium">لا توجد فحوصات متاحة حالياً</p>
+                    <p className="text-sm mt-2 mb-4">يرجى التواصل مع إدارة المختبر لإضافة الفحوصات المطلوبة</p>
+                    <button 
+                      onClick={() => {
+                        // Refresh tests in case they were just added
+                        fetchData();
+                      }}
+                      className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mx-auto"
+                      type="button"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      تحديث القائمة
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto border rounded-lg p-3">
