@@ -1,9 +1,9 @@
-// File: frontend/src/pages/MyPatients.jsx - REAL WORKING PAGE
+// File: frontend/src/pages/MyPatients.jsx - COMPLETE & FINAL
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { ArrowLeft, Search, Loader2, AlertCircle, X, User, Phone, Mail, Calendar } from 'lucide-react';
+import { ArrowLeft, Search, Loader2, AlertCircle, X, User, Phone, Mail, Calendar, TestTube } from 'lucide-react';
 
 const MyPatients = () => {
   const { logout } = useAuth();
@@ -26,7 +26,7 @@ const MyPatients = () => {
       // جلب المواعيد أولاً لاستخراج مرضى الطبيب الحالي
       const aptRes = await api.get('/appointments');
       if (aptRes.data?.success) {
-        const appointments = aptRes.data['data']?.appointments || [];
+        const appointments = aptRes.data.data?.appointments || aptRes.data['data']?.appointments || [];
         // استخراج المرضى الفريدين من مواعيد الطبيب
         const myPatients = appointments
           .filter(apt => apt.patient)
@@ -37,8 +37,10 @@ const MyPatients = () => {
             return acc;
           }, []);
         setPatients(myPatients);
+        console.log('📊 [MyPatients] Found', myPatients.length, 'patients');
       }
     } catch (err) {
+      console.error('💥 [MyPatients] Fetch error:', err);
       setError(err.message || 'فشل تحميل البيانات');
       if (err.response?.status === 401) {
         logout();
@@ -126,13 +128,26 @@ const MyPatients = () => {
                       )}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => navigate(`/appointments?patient=${patient.id}`)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg"
-                    type="button"
-                  >
-                    عرض المواعيد
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* ✅ زر طلب فحص - جديد */}
+                    <button 
+                      onClick={() => navigate(`/lab?action=request&patientId=${patient.id}`)}
+                      className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded"
+                      type="button"
+                      title="طلب فحص"
+                    >
+                      <TestTube className="w-5 h-5" />
+                    </button>
+                    {/* زر عرض المواعيد */}
+                    <button 
+                      onClick={() => navigate(`/appointments?patient=${patient.id}`)}
+                      className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded"
+                      type="button"
+                      title="عرض المواعيد"
+                    >
+                      <Calendar className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
