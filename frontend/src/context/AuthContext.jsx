@@ -11,65 +11,74 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    
-    if (token && savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        // التحقق من صلاحية التوكن في الخلفية
-        api.get('/auth/me')
-          .then((res) => {
-            if (res.data?.success) {
-              const userData = res.data['data']?.user;
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      
+      if (token && savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          
+          // التحقق من صلاحية التوكن
+          const res = await api.get('/auth/me');
+          if (res.data?.success) {
+            // ✅ دعم كلا الشكلين: .data و ['data']
+            const userData = res.data.data?.user || res.data['data']?.user;
+            if (userData) {
               setUser(userData);
               localStorage.setItem('user', JSON.stringify(userData));
             }
-          })
-          .catch(() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setUser(null);
-          })
-          .finally(() => setLoading(false));
-      } catch (e) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setLoading(false);
+          }
+        } catch (e) {
+          console.warn('⚠️ Token validation failed:', e.message);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
       }
-    } else {
       setLoading(false);
-    }
+    };
+    
+    checkAuth();
   }, []);
 
   const login = async (email, password) => {
     try {
-      const response = await api.post('/auth/login', { email, password });
+      console.log('🔐 Attempting login for:', email);
       
-      // ✅ استخراج البيانات باستخدام ['data'] الآمن
+      const response = await api.post('/auth/login', { email, password });
+      console.log('✅ Login response:', response.data);
+      
       if (response.data?.success) {
-        const responseData = response.data['data'];
+        // ✅ دعم كلا الشكلين للاستجابة
+        const responseData = response.data.data || response.data['data'];
         const token = responseData?.token;
         const userData = responseData?.user;
+        
+        console.log('📦 Extracted:', { token: token ? '***' : null, user: userData });
         
         if (token && userData) {
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(userData));
           setUser(userData);
           
-          // ✅ إعادة التوجيه للوحة التحكم فوراً
+          // ✅ إعادة التوجيه مع replace لمنع العودة لصفحة الدخول
           navigate('/dashboard', { replace: true });
           return { success: true };
+        } else {
+          console.error('❌ Missing token or user in response:', responseData);
+          return { success: false, message: 'بيانات الدخول غير كاملة' };
         }
       }
       
       return { success: false, message: response.data?.message || 'فشل تسجيل الدخول' };
+      
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       return { 
         success: false, 
-        message: error.response?.data?.message || 'خطأ في الاتصال بالخادم' 
+        message: error.message || 'خطأ في الاتصال بالخادم' 
       };
     }
   };
@@ -78,7 +87,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.post('/auth/logout');
     } catch (e) {
-      // تجاهل أخطاء الخروج
+      console.warn('⚠️ Logout error (ignored):', e.message);
     }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
