@@ -1,8 +1,9 @@
-// File: frontend/src/pages/Settings.jsx - PRODUCTION READY
+// File: frontend/src/pages/Settings.jsx - FIXED NAME CONFLICT
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Settings, User, Bell, Shield, Database, Globe, Moon, Save, Loader2 } from 'lucide-react';
+// ✅ إصلاح: إعادة تسمية أيقونة Settings لتجنب التعارض
+import { ArrowLeft, Settings as SettingsIcon, User, Bell, Shield, Database, Globe, Moon, Save, Loader2 } from 'lucide-react';
 
 const Settings = () => {
   const { user, logout } = useAuth();
@@ -29,7 +30,6 @@ const Settings = () => {
     setSuccess('');
     
     try {
-      // حفظ الإعدادات في localStorage كمثال
       localStorage.setItem('clinicSettings', JSON.stringify(settings));
       setSuccess('تم حفظ الإعدادات بنجاح');
       setTimeout(() => setSuccess(''), 3000);
@@ -43,6 +43,7 @@ const Settings = () => {
   const SettingSection = ({ icon: Icon, title, children }) => (
     <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
       <div className="flex items-center gap-3 mb-4 pb-4 border-b">
+        {/* ✅ استخدام الأيقونة المعاد تسميتها */}
         <Icon className="w-6 h-6 text-blue-600" />
         <h2 className="text-lg font-bold text-gray-800">{title}</h2>
       </div>
@@ -59,7 +60,8 @@ const Settings = () => {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2">
-              <Settings className="w-6 h-6 text-gray-600" />
+              {/* ✅ استخدام الأيقونة المعاد تسميتها */}
+              <SettingsIcon className="w-6 h-6 text-gray-600" />
               <h1 className="text-xl font-bold text-gray-800">الإعدادات</h1>
             </div>
           </div>
