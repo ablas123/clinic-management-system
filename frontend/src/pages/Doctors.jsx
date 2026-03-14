@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Doctors.jsx - PRODUCTION READY
+// File: frontend/src/pages/Doctors.jsx - PRODUCTION READY (FIXED)
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -40,7 +40,8 @@ const Doctors = () => {
       setError('');
       const response = await api.get(`/doctors?search=${search}`);
       if (response.data?.success) {
-        setDoctors(response.data['data']?.doctors || []);
+        const data = response.data.data?.doctors || response.data['data']?.doctors || [];
+        setDoctors(data);
       }
     } catch (err) {
       setError(err.message || 'فشل تحميل الأطباء');
@@ -60,10 +61,8 @@ const Doctors = () => {
 
     try {
       if (editingId) {
-        // تحديث التوفر فقط للأطباء الموجودين
         await api.patch(`/doctors/${editingId}/availability`, { isAvailable: formData.isAvailable });
       } else {
-        // إنشاء طبيب جديد (يتطلب كلمة مرور)
         if (!formData.password) {
           setError('كلمة المرور مطلوبة للأطباء الجدد');
           setSubmitting(false);
@@ -106,7 +105,7 @@ const Doctors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الطبيب؟ لا يمكن التراجع.')) return;
+    if (!window.confirm('هل أنت متأكد من حذف هذا الطبيب؟')) return;
     try {
       await api.delete(`/doctors/${id}`);
       setDoctors(doctors.filter(d => d.id !== id));
@@ -225,9 +224,7 @@ const Doctors = () => {
                           </div>
                           <div>
                             <p className="font-medium text-gray-800">{doctor.user?.firstName} {doctor.user?.lastName}</p>
-                            <p className="text-xs text-gray-500 flex items-center gap-1">
-                              <Mail className="w-3 h-3" /> {doctor.user?.email || '-'}
-                            </p>
+                            <p className="text-xs text-gray-500 flex items-center gap-1"><Mail className="w-3 h-3" /> {doctor.user?.email || '-'}</p>
                           </div>
                         </div>
                       </td>
