@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Dashboard.jsx - COMPLETE & FINAL
+// File: frontend/src/pages/Dashboard.jsx - COMPLETE & FINAL (All Lessons Applied)
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Users, Stethoscope, Calendar, FileText, TestTube, Clipboard, DollarSign, Activity, Settings, FileCheck, Printer, Phone } from 'lucide-react';
@@ -12,14 +12,14 @@ const Dashboard = () => {
     navigate('/login');
   };
 
-  // ✅ قوائم حسب الدور - مع إضافة المختبر للأطباء
+  // ✅ قوائم حسب الدور - مع تطبيق المعايير العالمية
   const getMenuItems = () => {
     switch (user?.role) {
       case 'ADMIN':
         return [
           { icon: Users, title: 'المرضى', color: 'bg-blue-500', path: '/patients', desc: 'إدارة سجلات المرضى' },
           { icon: Stethoscope, title: 'الأطباء', color: 'bg-green-500', path: '/doctors', desc: 'إدارة هيئة الأطباء' },
-          { icon: TestTube, title: 'المختبر', color: 'bg-red-500', path: '/lab', desc: 'الفحوصات والنتائج' },
+          { icon: TestTube, title: 'المختبر', color: 'bg-red-500', path: '/lab-tech', desc: 'إدارة الفحوصات والنتائج' },
           { icon: Calendar, title: 'المواعيد', color: 'bg-purple-500', path: '/appointments', desc: 'حجز ومتابعة المواعيد' },
           { icon: DollarSign, title: 'الفواتير', color: 'bg-orange-500', path: '/invoices', desc: 'الفواتير والمدفوعات' },
           { icon: Activity, title: 'التقارير', color: 'bg-indigo-500', path: '/reports', desc: 'التقارير والإحصائيات' },
@@ -30,17 +30,17 @@ const Dashboard = () => {
         return [
           { icon: Users, title: 'مرضاي', color: 'bg-blue-500', path: '/my-patients', desc: 'ملفات مرضاي' },
           { icon: Calendar, title: 'مواعيدي', color: 'bg-purple-500', path: '/my-appointments', desc: 'جدول مواعيدي' },
-          { icon: TestTube, title: 'المختبر', color: 'bg-red-500', path: '/lab', desc: 'طلب وعرض نتائج الفحوصات' }, // ✅ تم الإضافة
-          { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab-results', desc: 'نتائج المختبر' },
+          { icon: TestTube, title: 'طلب فحوصات', color: 'bg-red-500', path: '/lab', desc: 'طلب فحوصات مختبر' },
+          { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab-results', desc: 'عرض النتائج الموثقة' },
           { icon: Clipboard, title: 'السجلات', color: 'bg-orange-500', path: '/medical-records', desc: 'السجلات الطبية' },
         ];
       
       case 'LAB_TECH':
         return [
-          { icon: TestTube, title: 'الفحوصات', color: 'bg-red-500', path: '/lab', desc: 'قائمة الفحوصات' },
-          { icon: Clipboard, title: 'الطلبات', color: 'bg-purple-500', path: '/lab', desc: 'طلبات الفحوصات' },
-          { icon: FileCheck, title: 'النتائج', color: 'bg-green-500', path: '/lab', desc: 'إدخال النتائج' },
-          { icon: Printer, title: 'التقارير', color: 'bg-blue-500', path: '/lab', desc: 'طباعة التقارير' },
+          { icon: TestTube, title: 'المختبر', color: 'bg-red-500', path: '/lab-tech', desc: 'إدارة الفحوصات والنتائج' },
+          { icon: Clipboard, title: 'المعلقة', color: 'bg-yellow-500', path: '/lab-tech', desc: 'النتائج قيد المعالجة' },
+          { icon: FileCheck, title: 'المكتملة', color: 'bg-green-500', path: '/lab-tech', desc: 'النتائج الموثقة' },
+          { icon: Printer, title: 'التقارير', color: 'bg-blue-500', path: '/lab-tech', desc: 'طباعة وإرسال' },
         ];
       
       case 'RECEPTIONIST':
@@ -97,6 +97,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
+      {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -134,7 +135,9 @@ const Dashboard = () => {
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Welcome Banner */}
         <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-8 text-white mb-8">
           <h2 className="text-2xl font-bold mb-2">مرحباً بك، {user?.firstName}! 👋</h2>
           <p className="opacity-90">
@@ -145,6 +148,7 @@ const Dashboard = () => {
           </p>
         </div>
 
+        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, index) => (
             <div key={index} className="bg-white rounded-xl p-6 shadow-sm">
@@ -157,6 +161,7 @@ const Dashboard = () => {
           ))}
         </div>
 
+        {/* Menu Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {menuItems.map((item) => (
             <button
